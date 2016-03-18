@@ -1,0 +1,14 @@
+heat_template_version: 2015-04-30
+
+parameters:
+  ControlPlaneIpList:
+    default: []
+    type: comma_delimited_list
+
+outputs:
+  net_ip_map:
+    description: >
+      A Hash containing a mapping of network names to assigned lists
+      of IP addresses.
+    value:
+      ctlplane: {get_param: ControlPlaneIpList}

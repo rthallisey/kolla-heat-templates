@@ -32,9 +32,8 @@ resources:
       key_name: {get_param: KeyName}
       networks:
         - network: ctlplane
-      name: 'kolla-node'
 
 outputs:
-  ip_address:
+  ip_addresses:
     description: IP address of the server in the ctlplane network
     value: {get_attr: [Node, networks, ctlplane, 0]}

@@ -6,7 +6,7 @@ description: >
 parameters:
   NodeCount:
     type: number
-    default: 3
+    default: 2
     constraints:
       - range: {min: 1}
 
@@ -18,3 +18,12 @@ resources:
       count: {get_param: NodeCount}
       resource_def:
         type: OS::TripleO::Node
+  NodeIpListMap:
+    type: OS::TripleO::Network::NetIpListMap
+    properties:
+      ControlPlaneIpList: {get_attr: [Node, ip_address]}
+
+outputs:
+  ip_address:
+    description: IP address of the server in the ctlplane network
+    value: {get_attr: [NodeIpListMap, net_ip_map, ctl_plane]}
