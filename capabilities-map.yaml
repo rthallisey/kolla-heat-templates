@@ -1,0 +1,95 @@
+# This file holds metadata about the capabilities of the tripleo-heat-templates
+# repository for deployment using puppet. It groups configuration by topic,
+# describes possible combinations of environments and resource capabilities.
+
+# root_template: identifies repository's root template
+# root_environment: identifies root_environment, this one is special in terms of
+#   order in which the environments are merged before deploying. This one serves as
+#   a base and it's parameters/resource_registry gets overriden by other environments
+#   if used.
+
+# topics:
+# High Level grouping by purpose of environments
+# Attributes:
+#  title: (required)
+#  description: (optional)
+#  environment_groups: (required)
+
+# environment_groups:
+# Identifies an environment choice. If group includes multiple environments it
+# indicates that environments in group are mutually exclusive.
+# Attributes:
+#  title: (optional)
+#  description: (optional)
+#  tags: a list of tags to provide aditional information for e.g. filtering (optional)
+#  environments: (required)
+
+# environments:
+# List of environments in environment group
+# Attributes:
+#  file: a file name including path within repository (required)
+#  title: (required)
+#  description: (optional)
+#  requires: an array of environments which are required by this environment (optional)
+#  resource_registry: [tbd] (optional)
+
+# resource_registry:
+# [tbd] Each environment can provide options on resource_registry level applicable
+# only when that given environment is used. (resource_type of that environment can
+# be implemented using multiple templates).
+
+root_template: overcloud.yaml
+root_environment: overcloud-resource-registry.yaml
+topics:
+  - title: Basic Configuration
+    description:
+    environment_groups:
+      - title:
+        description: Enable basic configuration required for OpenStack Deployment
+        environments:
+          - file: environments/kolla.yaml
+            title: Default Configuration
+            description:
+            requires:
+              - environments/kolla.yaml
+              - overcloud-resource-registry.yaml
+
+  - title: Overlay network Configuration
+    description:
+    environment_groups:
+      - title: Network Isolation
+        description: >
+          Enable the creation of Neutron networks for
+          isolated Overcloud traffic and configure each role to assign ports
+          (related to that role) on these networks.
+        environments:
+          - file: environments/network-isolation.yaml
+            title: Network Isolation
+            description: Enable Network Isolation
+            requires:
+              - overcloud-resource-registry.yaml
+              - environments/kolla.yaml
+      - title: Single nic or Bonding
+        description: >
+          Configure roles to use pair of bonded nics or to use Vlans on a
+          single nic. This option assumes use of Network Isolation.
+        environments:
+          - file: environments/net-bond-with-vlans.yaml
+            title: Bond with Vlans
+            description: >
+              Configure each role to use a pair of bonded nics (nic2 and
+              nic3) and configures an IP address on each relevant isolated network
+              for each role. This option assumes use of Network Isolation.
+            requires:
+              - environments/network-isolation.yaml
+              - overcloud-resource-registry.yaml
+              - environments/kolla.yaml
+          - file: environments/net-single-nic-with-vlans.yaml
+            title: Single nic with Vlans
+            description: >
+              Configure each role to use Vlans on a single nic for
+              each isolated network. This option assumes use of Network Isolation.
+            requires:
+              - environments/network-isolation.yaml
+              - overcloud-resource-registry.yaml
+              - environments/kolla.yaml

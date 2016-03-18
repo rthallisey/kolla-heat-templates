@@ -1,0 +1,7 @@
+resource_registry:
+  # kolla
+  OS::TripleO::Node: kolla/node.yaml
+
+  # This creates the "heat-admin" user for all OS images by default
+  # To disable, replace with firstboot/userdata_default.yaml
+  #OS::TripleO::NodeAdminUserData: firstboot/userdata_heat_admin.yaml

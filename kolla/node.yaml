@@ -1,0 +1,40 @@
+heat_template_version: 2015-04-30
+description: >
+  OpenStack node deployment for Kolla.
+
+parameters:
+  Image:
+    type: string
+    default: atomic-image
+    constraints:
+      - custom_constraint: glance.image
+  Flavor:
+    description: Flavor for the nova compute node
+    type: string
+    default: baremetal
+    constraints:
+      - custom_constraint: nova.flavor
+  KeyName:
+    description: Name of an existing Nova key pair to enable SSH access to the instances
+    type: string
+    default: default
+    constraints:
+      - custom_constraint: nova.keypair
+
+resources:
+
+  Node:
+    type: OS::Nova::Server
+    properties:
+      image:
+        {get_param: Image}
+      flavor: {get_param: Flavor}
+      key_name: {get_param: KeyName}
+      networks:
+        - network: ctlplane
+      name: 'kolla-node'
+
+outputs:
+  ip_address:
+    description: IP address of the server in the ctlplane network
+    value: {get_attr: [Node, networks, ctlplane, 0]}

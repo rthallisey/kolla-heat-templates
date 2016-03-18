@@ -1,0 +1,7 @@
+resource_registry:
+  # Docker container with heat agents for containerized compute node.
+  OS::TripleO::Node: ../kolla/node.yaml
+  #OS::TripleO::NodeUserData: ../kolla/firstboot/config-docker.yaml
+
+#parameters:
+#  NovaImage: atomic-image
