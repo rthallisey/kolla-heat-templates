@@ -4,7 +4,7 @@ parameters:
   # Can be overridden via parameter_defaults in the environment
   node_admin_username:
     type: string
-    default: root
+    default: fedora
 
 description: >
   Uses cloud-init to create an additional user with a known name, in addition

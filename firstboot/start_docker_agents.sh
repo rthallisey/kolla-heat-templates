@@ -4,41 +4,28 @@ set -eux
 /sbin/setenforce 0
 /sbin/modprobe ebtables
 
-# We need a different docker version
-# (should obviously be dropped once the atomic image contains docker 1.8.2)
-/usr/bin/systemctl stop docker.service
-/bin/curl -o /tmp/docker https://get.docker.com/builds/Linux/x86_64/docker-latest
-/bin/mount -o remount,rw /usr
-/bin/rm /bin/docker
-/bin/cp /tmp/docker /bin/docker
-/bin/chmod 755 /bin/docker
+cat | sudo tee /etc/yum.repos.d/docker.repo << EOF
+[docker]
+name=Docker Main Repository
+baseurl=https://yum.dockerproject.org/repo/main/fedora/23/
+enabled=1
+gpgcheck=1
+gpgkey=https://yum.dockerproject.org/gpg
+EOF
 
+sudo dnf install -y libffi-devel openssl-devel docker-engine btrfs-progs python-docker-py
+
+sudo sed -i -r 's,(ExecStart)=(.+),\1=/usr/bin/docker daemon --insecure-registry=$docker_registry,' /usr/lib/systemd/system/docker.service
 sudo sed -i 's|^MountFlags=.*|MountFlags=shared|' /usr/lib/systemd/system/docker.service
-
-# enable and start docker
 sudo systemctl daemon-reload
-/usr/bin/systemctl enable docker.service
-/usr/bin/systemctl restart --no-block docker.service
 
-# Disable NetworkManager and let the ifup/down scripts work properly.
-#/usr/bin/systemctl disable NetworkManager
-#/usr/bin/systemctl stop NetworkManager
+sudo systemctl start docker
+sudo docker info
 
-# Atomic's root partition & logical volume defaults to 3G.  In order to launch
-# larger VMs, we need to enlarge the root logical volume and scale down the
-# docker_pool logical volume. We are allocating 80% of the disk space for
-# vm data and the remaining 20% for docker images.
-# ATOMIC_ROOT='/dev/mapper/atomicos-root'
-# ROOT_DEVICE=`pvs -o vg_name,pv_name --no-headings | grep atomicos | awk '{ print $2}'`
-#
-# growpart $( echo "${ROOT_DEVICE}" | sed -r 's/([^0-9]*)([0-9]+)/\1 \2/' )
-# pvresize "${ROOT_DEVICE}"
-# lvresize -l +80%FREE "${ATOMIC_ROOT}"
-# xfs_growfs "${ATOMIC_ROOT}"
-#
-# cat <<EOF > /etc/sysconfig/docker-storage-setup
-# GROWPART=true
-# AUTO_EXTEND_POOL=yes
-# POOL_AUTOEXTEND_PERCENT=30
-# POOL_AUTOEXTEND_THRESHOLD=70
-# EOF
+# The Fedora setup doesn't allow root login which is what it seems ansible
+# wants so I'm going to copy the ssh key from the fedora user to /root.
+
+cp -rv /home/fedora/.ssh /root/
+
+# For verifying the node has booted and is ready.. not yet usable.
+# os-collect-config

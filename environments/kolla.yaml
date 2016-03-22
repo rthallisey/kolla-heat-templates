@@ -3,5 +3,5 @@ resource_registry:
   OS::TripleO::Node: ../kolla/node.yaml
   #OS::TripleO::NodeUserData: ../kolla/firstboot/config-docker.yaml
 
-#parameters:
-#  NovaImage: atomic-image
+parameter_defaults:
+  DockerRegistry: 192.168.122.227:4000
