@@ -34,6 +34,6 @@ resources:
         - network: ctlplane
 
 outputs:
-  ip_addresses:
+  ip_address:
     description: IP address of the server in the ctlplane network
     value: {get_attr: [Node, networks, ctlplane, 0]}
