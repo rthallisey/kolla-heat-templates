@@ -55,6 +55,23 @@ resources:
   NodeUserData:
     type: OS::TripleO::NodeUserData
 
+  # VerifyCompleteDeployment:
+  #   type: OS::Heat::SoftwareDeployments
+  #   depends_on: Node
+  #   properties:
+  #     name: VerifyCompleteDeployment
+  #     config: {get_resource: VerifyCompleteConfig}
+  #     servers: {get_resource: Node}
+  #
+  # VerifyCompleteConfig:
+  #   type: OS::Heat::SoftwareConfig
+  #   properties:
+  #     group: script
+  #     outputs:
+  #     - name: result
+  #     config: |
+  #       #!/bin/bash
+  #       /bin/true
 
 outputs:
   ip_address:
