@@ -1,27 +1,28 @@
 #!/bin/bash
 set -eux
 
-# firstboot isn't split out by role yet so we handle it this way
-if ! hostname | grep compute &>/dev/null; then
- echo "Exiting. This script is only for the compute role."
- exit 0
-fi
-
 /sbin/setenforce 0
 /sbin/modprobe ebtables
 
+# We need a different docker version
+# (should obviously be dropped once the atomic image contains docker 1.8.2)
 /usr/bin/systemctl stop docker.service
-/bin/curl -o /tmp/docker https://get.docker.com/builds/Linux/x86_64/docker-$docker_version
+/bin/curl -o /tmp/docker https://get.docker.com/builds/Linux/x86_64/docker-latest
 /bin/mount -o remount,rw /usr
 /bin/rm /bin/docker
 /bin/cp /tmp/docker /bin/docker
 /bin/chmod 755 /bin/docker
 
+sudo sed -i 's|^MountFlags=.*|MountFlags=shared|' /usr/lib/systemd/system/docker.service
+
+# enable and start docker
+sudo systemctl daemon-reload
 /usr/bin/systemctl enable docker.service
 /usr/bin/systemctl restart --no-block docker.service
 
-/usr/bin/systemctl disable NetworkManager
-/usr/bin/systemctl stop NetworkManager
+# Disable NetworkManager and let the ifup/down scripts work properly.
+#/usr/bin/systemctl disable NetworkManager
+#/usr/bin/systemctl stop NetworkManager
 
 # Atomic's root partition & logical volume defaults to 3G.  In order to launch
 # larger VMs, we need to enlarge the root logical volume and scale down the

@@ -1,3 +1,5 @@
 resource_registry:
   # kolla
   OS::TripleO::Node: kolla/node.yaml
+  OS::TripleO::NodeAdminUserData: firstboot/userdata_heat_admin.yaml
+  OS::TripleO::NodeUserData: firstboot/install_docker_agents.yaml
