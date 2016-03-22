@@ -26,6 +26,12 @@ EOF
 systemctl daemon-reload
 systemctl restart docker
 
+tee ~/.ssh/config <<-'EOF'
+Host 192.168.0.*
+   StrictHostKeyChecking no
+   UserKnownHostsFile=/dev/null
+EOF
+
 
 sudo systemctl start docker
 
