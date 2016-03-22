@@ -1,4 +1,3 @@
 resource_registry:
   # kolla
   OS::TripleO::Node: kolla/node.yaml
-  OS::TripleO::Network::NetIpListMap: network/net_ip_list_map.yaml

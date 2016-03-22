@@ -22,4 +22,3 @@ outputs:
   ip_addresses:
     description: IP address of the server in the ctlplane network
     value: {get_attr: [Node, ip_address]}
-
