@@ -20,6 +20,13 @@ parameters:
     default: default
     constraints:
       - custom_constraint: nova.keypair
+  Hostname:
+    type: string
+    default: '' # Defaults to Heat created hostname
+  HostnameMap:
+    type: json
+    default: {}
+    description: Optional mapping to override hostnames
 
 resources:
 
@@ -32,6 +39,10 @@ resources:
       key_name: {get_param: KeyName}
       user_data_format: SOFTWARE_CONFIG
       user_data: {get_resource: UserData}
+      name:
+        str_replace:
+            template: {get_param: Hostname}
+            params: {get_param: HostnameMap}
       networks:
         - network: ctlplane
 

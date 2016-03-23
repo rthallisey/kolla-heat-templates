@@ -9,6 +9,10 @@ parameters:
     default: 2
     constraints:
       - range: {min: 1}
+  HostnameFormat:
+    type: string
+    description: Format for Compute node hostnames
+    default: '%stackname%-%index%'
 
 resources:
   Node:
@@ -17,6 +21,12 @@ resources:
       count: {get_param: NodeCount}
       resource_def:
         type: OS::TripleO::Node
+        properties:
+          Hostname:
+            str_replace:
+              template: {get_param: HostnameFormat}
+              params:
+                '%stackname%': {get_param: 'OS::stack_name'}
 
 outputs:
   ip_addresses:

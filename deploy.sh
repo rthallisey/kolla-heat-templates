@@ -43,4 +43,4 @@ heat output-show overcloud ip_addresses > overcloud_ip_list.txt
 
 sudo docker run -d -p 4000:5000 --restart=always --name registry registry:2
 
-(cd kolla && sudo ./tools/build.py keystone cron kolla-toolbox heka nova glance mariadb haproxy keepalived memcached neutron openvswitch rabbitmq --base centos --tag latest --namespace kolla-tripleo -t binary --registry ${MYIP}:4000 --push)
+(cd kolla && sudo ./tools/build.py keystone cron kolla-toolbox heka nova glance mariadb haproxy keepalived memcached neutron openvswitch heat horizon rabbitmq --base centos --tag latest --namespace kolla-tripleo -t binary --registry ${MYIP}:4000 --push)
