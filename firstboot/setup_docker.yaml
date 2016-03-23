@@ -3,7 +3,7 @@ heat_template_version: 2014-10-16
 parameters:
   DockerRegistry:
     type: string
-    default: 192.168.122.227:4000
+    default: 127.0.0.1:4000
 
 resources:
 
@@ -11,9 +11,9 @@ resources:
     type: OS::Heat::MultipartMime
     properties:
       parts:
-      - config: {get_resource: install_docker_agents}
+      - config: {get_resource: start_docker}
 
-  install_docker_agents:
+  start_docker:
     type: OS::Heat::SoftwareConfig
     properties:
       group: script
@@ -21,7 +21,7 @@ resources:
         str_replace:
           params:
             $docker_registry: {get_param: DockerRegistry}
-          template: {get_file: ./start_docker_agents.sh}
+          template: {get_file: ./start_docker.sh}
 
 outputs:
   OS::stack_id:

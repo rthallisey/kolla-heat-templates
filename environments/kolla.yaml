@@ -4,4 +4,4 @@ resource_registry:
   #OS::TripleO::NodeUserData: ../kolla/firstboot/config-docker.yaml
 
 parameter_defaults:
-  DockerRegistry: 192.168.122.227:4000
+  DockerRegistry: 192.168.122.165:4000
