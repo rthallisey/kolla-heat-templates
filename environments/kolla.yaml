@@ -1,7 +1,5 @@
 resource_registry:
-  # Docker container with heat agents for containerized compute node.
   OS::TripleO::Node: ../kolla/node.yaml
-  #OS::TripleO::NodeUserData: ../kolla/firstboot/config-docker.yaml
 
 parameter_defaults:
   DockerRegistry: 192.168.122.165:4000
