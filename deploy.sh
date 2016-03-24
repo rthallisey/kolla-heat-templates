@@ -36,6 +36,8 @@ chmod 600 ~/.ssh/config
 
 sudo systemctl start docker
 
+sed -i s/x.x.x.x/$MY_IP/ kolla-heat-templates/environments/kolla.yaml
+
 openstack overcloud deploy --templates=kolla-heat-templates -e kolla-heat-templates/environments/kolla.yaml
 
 heat output-show overcloud ip_addresses
