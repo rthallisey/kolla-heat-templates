@@ -24,7 +24,7 @@ docker info
 
 # Hostname needs to resolve
 cat <<EOF >> /etc/hosts
-127.0.0.1   `hostname | cut -f 1 -d '.'` localhost.localdomain
+`ip route get 8.8.8.8 | awk 'NR==1 {print $NF}'`   `hostname | cut -f 1 -d '.'` localhost.localdomain
 EOF
 
 # The Fedora setup doesn't allow root login which is what it seems ansible
