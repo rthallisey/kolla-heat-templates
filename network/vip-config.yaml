@@ -1,0 +1,38 @@
+heat_template_version: 2015-04-30
+
+description: >
+  Configure hieradata for service -> virtual IP mappings.
+
+parameters:
+  PublicVirtualIp:
+    default: 192.0.2.40
+    type: string
+  NodeVirtualIp:
+    default: 192.0.2.41
+    type: string
+  InternalApiVirtualIp:
+    default: 192.0.2.42
+    type: string
+  StorageVirtualIp:
+    default: 192.0.2.43
+    type: string
+  StorageMgmtVirtualIp:
+    default: 192.0.2.44
+    type: string
+
+resources:
+  VipConfigImpl:
+    type: OS::Heat::StructuredConfig
+    properties:
+      group: os-apply-config
+      config:
+        public_virtual_ip: {get_param: PublicVirtualIp}
+        controller_virtual_ip: {get_param: NodeVirtualIp}
+        internal_api_virtual_ip: {get_param: InternalApiVirtualIp}
+        storage_virtual_ip: {get_param: StorageVirtualIp}
+        storage_mgmt_virtual_ip: {get_param: StorageMgmtVirtualIp}
+
+outputs:
+  OS::stack_id:
+    description: The VipConfigImpl resource.
+    value: {get_resource: VipConfigImpl}

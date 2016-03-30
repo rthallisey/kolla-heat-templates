@@ -1,0 +1,5410 @@
+commit 26a20926f64269531eab9bb6e6f29bdb132d45b6
+Author: Ryan Hallisey <rhallise@redhat.com>
+Date:   Tue Mar 29 12:54:01 2016 +0000
+
+    Network Isolation
+    
+    WIP for network-isolation.
+
+diff --git a/environments/ips-from-pool-all.yaml b/environments/ips-from-pool-all.yaml
+new file mode 100644
+index 0000000..f660d50
+--- /dev/null
++++ b/environments/ips-from-pool-all.yaml
+@@ -0,0 +1,75 @@
++# Environment file demonstrating how to pre-assign IPs to all node types
++resource_registry:
++  OS::TripleO::Controller::Ports::ExternalPort: ../network/ports/external_from_pool.yaml
++  OS::TripleO::Controller::Ports::InternalApiPort: ../network/ports/internal_api_from_pool.yaml
++  OS::TripleO::Controller::Ports::StoragePort: ../network/ports/storage_from_pool.yaml
++  OS::TripleO::Controller::Ports::StorageMgmtPort: ../network/ports/storage_mgmt_from_pool.yaml
++  OS::TripleO::Controller::Ports::TenantPort: ../network/ports/tenant_from_pool.yaml
++
++  OS::TripleO::Compute::Ports::ExternalPort: ../network/ports/noop.yaml
++  OS::TripleO::Compute::Ports::InternalApiPort: ../network/ports/internal_api_from_pool.yaml
++  OS::TripleO::Compute::Ports::StoragePort: ../network/ports/storage_from_pool.yaml
++  OS::TripleO::Compute::Ports::StorageMgmtPort: ../network/ports/noop.yaml
++  OS::TripleO::Compute::Ports::TenantPort: ../network/ports/tenant_from_pool.yaml
++
++  OS::TripleO::CephStorage::Ports::ExternalPort: ../network/ports/noop.yaml
++  OS::TripleO::CephStorage::Ports::InternalApiPort: ../network/ports/noop.yaml
++  OS::TripleO::CephStorage::Ports::StoragePort: ../network/ports/storage_from_pool.yaml
++  OS::TripleO::CephStorage::Ports::StorageMgmtPort: ../network/ports/storage_mgmt_from_pool.yaml
++  OS::TripleO::CephStorage::Ports::TenantPort: ../network/ports/noop.yaml
++
++  OS::TripleO::SwiftStorage::Ports::ExternalPort: ../network/ports/noop.yaml
++  OS::TripleO::SwiftStorage::Ports::InternalApiPort: ../network/ports/internal_api_from_pool.yaml
++  OS::TripleO::SwiftStorage::Ports::StoragePort: ../network/ports/storage_from_pool.yaml
++  OS::TripleO::SwiftStorage::Ports::StorageMgmtPort: ../network/ports/storage_mgmt_from_pool.yaml
++  OS::TripleO::SwiftStorage::Ports::TenantPort: ../network/ports/noop.yaml
++
++  OS::TripleO::BlockStorage::Ports::ExternalPort: ../network/ports/noop.yaml
++  OS::TripleO::BlockStorage::Ports::InternalApiPort: ../network/ports/internal_api_from_pool.yaml
++  OS::TripleO::BlockStorage::Ports::StoragePort: ../network/ports/storage_from_pool.yaml
++  OS::TripleO::BlockStorage::Ports::StorageMgmtPort: ../network/ports/storage_mgmt_from_pool.yaml
++  OS::TripleO::BlockStorage::Ports::TenantPort: ../network/ports/noop.yaml
++
++parameter_defaults:
++  ControllerIPs:
++    # Each controller will get an IP from the lists below, first controller, first IP
++    external:
++    - 10.0.0.251
++    internal_api:
++    - 172.16.2.251
++    storage:
++    - 172.16.1.251
++    storage_mgmt:
++    - 172.16.3.251
++    tenant:
++    - 172.16.0.251
++  NovaComputeIPs:
++    # Each compute will get an IP from the lists below, first compute, first IP
++    internal_api:
++    - 172.16.2.252
++    storage:
++    - 172.16.1.252
++    tenant:
++    - 172.16.0.252
++  CephStorageIPs:
++    # Each ceph node will get an IP from the lists below, first node, first IP
++    storage:
++    - 172.16.1.253
++    storage_mgmt:
++    - 172.16.3.253
++  SwiftStorageIPs:
++    # Each swift node will get an IP from the lists below, first node, first IP
++    internal_api:
++    - 172.16.2.254
++    storage:
++    - 172.16.1.254
++    storage_mgmt:
++    - 172.16.3.254
++  BlockStorageIPs:
++    # Each cinder node will get an IP from the lists below, first node, first IP
++    internal_api:
++    - 172.16.2.250
++    storage:
++    - 172.16.1.250
++    storage_mgmt:
++    - 172.16.3.250
+diff --git a/environments/net-single-nic-with-vlans.yaml b/environments/net-single-nic-with-vlans.yaml
+new file mode 100644
+index 0000000..0620dc7
+--- /dev/null
++++ b/environments/net-single-nic-with-vlans.yaml
+@@ -0,0 +1,29 @@
++# This template configures each role to use Vlans on a single nic for
++# each isolated network.
++# This template assumes use of network-isolation.yaml.
++#
++# FIXME: if/when we add functionality to heatclient to include heat
++# environment files we should think about using it here to automatically
++# include network-isolation.yaml.
++resource_registry:
++  OS::TripleO::BlockStorage::Net::SoftwareConfig: ../network/config/single-nic-vlans/cinder-storage.yaml
++  OS::TripleO::Compute::Net::SoftwareConfig: ../network/config/single-nic-vlans/compute.yaml
++  OS::TripleO::Controller::Net::SoftwareConfig: ../network/config/single-nic-vlans/controller.yaml
++  OS::TripleO::ObjectStorage::Net::SoftwareConfig: ../network/config/single-nic-vlans/swift-storage.yaml
++  OS::TripleO::CephStorage::Net::SoftwareConfig: ../network/config/single-nic-vlans/ceph-storage.yaml
++
++# We use parameter_defaults instead of parameters here because Tuskar munges
++# the names of top level and role level parameters with the role name and a
++# version. Using parameter_defaults makes it such that if the parameter name is
++# not defined in the template, we don't get an error.
++parameter_defaults:
++  # This sets 'external_network_bridge' in l3_agent.ini to an empty string
++  # so that external networks act like provider bridge networks (they
++  # will plug into br-int instead of br-ex)
++  NeutronExternalNetworkBridge: "''"
++  ControlPlaneSubnetCidr: "24"
++  ControlPlaneDefaultRoute: "192.0.2.1"
++  EC2MetadataIp: "192.0.2.1"
++  ExternalInterfaceDefaultRoute: "192.0.3.251"
++  ExternalNetCidr: "192.0.3.1/24"
++  ExternalAllocationPools: [{'start': '192.0.3.30', 'end': '192.0.3.100'}]
+diff --git a/environments/network-isolation.yaml b/environments/network-isolation.yaml
+new file mode 100644
+index 0000000..87fc22f
+--- /dev/null
++++ b/environments/network-isolation.yaml
+@@ -0,0 +1,63 @@
++# Enable the creation of Neutron networks for isolated Overcloud
++# traffic and configure each role to assign ports (related
++# to that role) on these networks.
++# Many networks are disabled by default because they are not used
++# in a typical configuration. Override via parameter_defaults.
++resource_registry:
++  OS::TripleO::Network::External: ../network/external.yaml
++  OS::TripleO::Network::InternalApi: ../network/internal_api.yaml
++  OS::TripleO::Network::StorageMgmt: ../network/storage_mgmt.yaml
++  OS::TripleO::Network::Storage: ../network/storage.yaml
++  OS::TripleO::Network::Tenant: ../network/tenant.yaml
++  # Management network is optional and disabled by default
++  OS::TripleO::Network::Management: ../network/noop.yaml
++
++  # Port assignments for the VIPs
++  OS::TripleO::Network::Ports::ExternalVipPort: ../network/ports/external.yaml
++  OS::TripleO::Network::Ports::InternalApiVipPort: ../network/ports/internal_api.yaml
++  OS::TripleO::Network::Ports::StorageVipPort: ../network/ports/storage.yaml
++  OS::TripleO::Network::Ports::StorageMgmtVipPort: ../network/ports/storage_mgmt.yaml
++  OS::TripleO::Network::Ports::RedisVipPort: ../network/ports/vip.yaml
++
++  # Port assignments for the controller role
++  OS::TripleO::Controller::Ports::ExternalPort: ../network/ports/external.yaml
++  OS::TripleO::Controller::Ports::InternalApiPort: ../network/ports/internal_api.yaml
++  OS::TripleO::Controller::Ports::StoragePort: ../network/ports/storage.yaml
++  OS::TripleO::Controller::Ports::StorageMgmtPort: ../network/ports/storage_mgmt.yaml
++  OS::TripleO::Controller::Ports::TenantPort: ../network/ports/tenant.yaml
++  OS::TripleO::Controller::Ports::ManagementPort: ../network/ports/noop.yaml
++
++  # Port assignments for the compute role
++  OS::TripleO::Compute::Ports::ExternalPort: ../network/ports/noop.yaml
++  OS::TripleO::Compute::Ports::InternalApiPort: ../network/ports/internal_api.yaml
++  OS::TripleO::Compute::Ports::StoragePort: ../network/ports/storage.yaml
++  OS::TripleO::Compute::Ports::StorageMgmtPort: ../network/ports/noop.yaml
++  OS::TripleO::Compute::Ports::TenantPort: ../network/ports/tenant.yaml
++  OS::TripleO::Compute::Ports::ManagementPort: ../network/ports/noop.yaml
++
++  # Port assignments for the ceph storage role
++  OS::TripleO::CephStorage::Ports::ExternalPort: ../network/ports/noop.yaml
++  OS::TripleO::CephStorage::Ports::InternalApiPort: ../network/ports/noop.yaml
++  OS::TripleO::CephStorage::Ports::StoragePort: ../network/ports/storage.yaml
++  OS::TripleO::CephStorage::Ports::StorageMgmtPort: ../network/ports/storage_mgmt.yaml
++  OS::TripleO::CephStorage::Ports::TenantPort: ../network/ports/noop.yaml
++  OS::TripleO::CephStorage::Ports::ManagementPort: ../network/ports/noop.yaml
++
++  # Port assignments for the swift storage role
++  OS::TripleO::SwiftStorage::Ports::ExternalPort: ../network/ports/noop.yaml
++  OS::TripleO::SwiftStorage::Ports::InternalApiPort: ../network/ports/internal_api.yaml
++  OS::TripleO::SwiftStorage::Ports::StoragePort: ../network/ports/storage.yaml
++  OS::TripleO::SwiftStorage::Ports::StorageMgmtPort: ../network/ports/storage_mgmt.yaml
++  OS::TripleO::SwiftStorage::Ports::TenantPort: ../network/ports/noop.yaml
++  OS::TripleO::SwiftStorage::Ports::ManagementPort: ../network/ports/noop.yaml
++
++  # Port assignments for the block storage role
++  OS::TripleO::BlockStorage::Ports::ExternalPort: ../network/ports/noop.yaml
++  OS::TripleO::BlockStorage::Ports::InternalApiPort: ../network/ports/internal_api.yaml
++  OS::TripleO::BlockStorage::Ports::StoragePort: ../network/ports/storage.yaml
++  OS::TripleO::BlockStorage::Ports::StorageMgmtPort: ../network/ports/storage_mgmt.yaml
++  OS::TripleO::BlockStorage::Ports::TenantPort: ../network/ports/noop.yaml
++  OS::TripleO::BlockStorage::Ports::ManagementPort: ../network/ports/noop.yaml
++
++  # Port assignments for service virtual IPs for the controller role
++  OS::TripleO::Controller::Ports::RedisVipPort: ../network/ports/vip.yaml
+diff --git a/kolla/node.yaml b/kolla/node.yaml
+index 4978322..a2161ff 100644
+--- a/kolla/node.yaml
++++ b/kolla/node.yaml
+@@ -3,23 +3,17 @@ description: >
+   OpenStack node deployment for Kolla.
+ 
+ parameters:
+-  Image:
+-    type: string
+-    default: atomic-image
+-    constraints:
+-      - custom_constraint: glance.image
++  EndpointMap:
++    default: {}
++    description: Mapping of service endpoint -> protocol. Typically set
++                 via parameter_defaults in the resource registry.
++    type: json
+   Flavor:
+     description: Flavor for the nova compute node
+     type: string
+     default: baremetal
+     constraints:
+       - custom_constraint: nova.flavor
+-  KeyName:
+-    description: Name of an existing Nova key pair to enable SSH access to the instances
+-    type: string
+-    default: default
+-    constraints:
+-      - custom_constraint: nova.keypair
+   Hostname:
+     type: string
+     default: '' # Defaults to Heat created hostname
+@@ -27,6 +21,29 @@ parameters:
+     type: json
+     default: {}
+     description: Optional mapping to override hostnames
++  Image:
++    type: string
++    default: atomic-image
++    constraints:
++      - custom_constraint: glance.image
++  KeyName:
++    description: Name of an existing Nova key pair to enable SSH access to the instances
++    type: string
++    default: default
++    constraints:
++      - custom_constraint: nova.keypair
++  PublicVirtualIP:
++    type: string
++    default: ''  # Has to be here because of the ignored empty value bug
++  PublicVirtualInterface:
++    default: 'br-ex'
++    description: >
++        Specifies the interface where the public-facing virtual ip will be assigned.
++        This should be int_public when a VLAN is being used.
++    type: string
++  VirtualIP: # DEPRECATED: use per service settings instead
++    type: string
++    default: ''  # Has to be here because of the ignored empty value bug
+ 
+ resources:
+ 
+@@ -88,3 +105,7 @@ outputs:
+   ip_address:
+     description: IP address of the server in the ctlplane network
+     value: {get_attr: [Node, networks, ctlplane, 0]}
++  nova_server_resource:
++    description: Heat resource handle for the Nova compute server
++    value:
++      {get_resource: Node}
+diff --git a/network/config/single-nic-vlans/README.md b/network/config/single-nic-vlans/README.md
+new file mode 100644
+index 0000000..f9c2e51
+--- /dev/null
++++ b/network/config/single-nic-vlans/README.md
+@@ -0,0 +1,49 @@
++This directory contains Heat templates to help configure
++Vlans on a single NIC for each Overcloud role.
++
++There are two versions of the controller role template, one with
++an external network interface, and another without. If the
++external network interface is not configured, the ctlplane address
++ranges will be used for external (public) network traffic.
++
++Configuration
++-------------
++
++To make use of these templates create a Heat environment that looks
++something like this:
++
++  resource\_registry:
++    OS::TripleO::BlockStorage::Net::SoftwareConfig: network/config/single-nic-vlans/cinder-storage.yaml
++    OS::TripleO::Compute::Net::SoftwareConfig: network/config/single-nic-vlans/compute.yaml
++    OS::TripleO::Controller::Net::SoftwareConfig: network/config/single-nic-vlans/controller.yaml
++    OS::TripleO::ObjectStorage::Net::SoftwareConfig: network/config/single-nic-vlans/swift-storage.yaml
++    OS::TripleO::CephStorage::Net::SoftwareConfig: network/config/single-nic-vlans/ceph-storage.yaml
++
++Or use this Heat environment file:
++
++  environments/net-single-nic-with-vlans.yaml
++
++Configuration with no External Network
++--------------------------------------
++
++Same as above except set the following value for the controller role:
++
++    OS::TripleO::Controller::Net::SoftwareConfig: network/config/single-nic-vlans/controller-no-external.yaml
++
++Configuration with System Management Network
++--------------------------------------------
++
++To enable the optional System Management network, create a Heat environment
++that looks something like this:
++
++  resource\_registry:
++    OS::TripleO::Network::Management: ../network/management.yaml
++    OS::TripleO::Controller::Ports::ManagementPort: ../network/ports/management.yaml
++    OS::TripleO::Compute::Ports::ManagementPort: ../network/ports/management.yaml
++    OS::TripleO::CephStorage::Ports::ManagementPort: ../network/ports/management.yaml
++    OS::TripleO::SwiftStorage::Ports::ManagementPort: ../network/ports/management.yaml
++    OS::TripleO::BlockStorage::Ports::ManagementPort: ../network/ports/management.yaml
++
++Or use this Heat environment file:
++
++  environments/network-management.yaml
+diff --git a/network/config/single-nic-vlans/ceph-storage.yaml b/network/config/single-nic-vlans/ceph-storage.yaml
+new file mode 100644
+index 0000000..80bc32d
+--- /dev/null
++++ b/network/config/single-nic-vlans/ceph-storage.yaml
+@@ -0,0 +1,119 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Software Config to drive os-net-config to configure VLANs for the
++  ceph storage role.
++
++parameters:
++  ControlPlaneIp:
++    default: ''
++    description: IP address/subnet on the ctlplane network
++    type: string
++  ExternalIpSubnet:
++    default: ''
++    description: IP address/subnet on the external network
++    type: string
++  InternalApiIpSubnet:
++    default: ''
++    description: IP address/subnet on the internal API network
++    type: string
++  StorageIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage network
++    type: string
++  StorageMgmtIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage mgmt network
++    type: string
++  TenantIpSubnet:
++    default: ''
++    description: IP address/subnet on the tenant network
++    type: string
++  ManagementIpSubnet: # Only populated when including environments/network-management.yaml
++    default: ''
++    description: IP address/subnet on the management network
++    type: string
++  StorageNetworkVlanID:
++    default: 30
++    description: Vlan ID for the storage network traffic.
++    type: number
++  StorageMgmtNetworkVlanID:
++    default: 40
++    description: Vlan ID for the storage mgmt network traffic.
++    type: number
++  ManagementNetworkVlanID:
++    default: 60
++    description: Vlan ID for the management network traffic.
++    type: number
++  ControlPlaneSubnetCidr: # Override this via parameter_defaults
++    default: '24'
++    description: The subnet CIDR of the control plane network.
++    type: string
++  ControlPlaneDefaultRoute: # Override this via parameter_defaults
++    description: The default route of the control plane network.
++    type: string
++  DnsServers: # Override this via parameter_defaults
++    default: []
++    description: A list of DNS servers (2 max for some implementations) that will be added to resolv.conf.
++    type: comma_delimited_list
++  EC2MetadataIp: # Override this via parameter_defaults
++    description: The IP address of the EC2 metadata server.
++    type: string
++
++resources:
++  OsNetConfigImpl:
++    type: OS::Heat::StructuredConfig
++    properties:
++      group: os-apply-config
++      config:
++        os_net_config:
++          network_config:
++            -
++              type: ovs_bridge
++              name: br-storage
++              use_dhcp: false
++              dns_servers: {get_param: DnsServers}
++              addresses:
++                -
++                  ip_netmask:
++                    list_join:
++                      - '/'
++                      - - {get_param: ControlPlaneIp}
++                        - {get_param: ControlPlaneSubnetCidr}
++              routes:
++                -
++                  ip_netmask: 169.254.169.254/32
++                  next_hop: {get_param: EC2MetadataIp}
++                -
++                  default: true
++                  next_hop: {get_param: ControlPlaneDefaultRoute}
++              members:
++                -
++                  type: interface
++                  name: nic1
++                  # force the MAC address of the bridge to this interface
++                  primary: true
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: StorageIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageMgmtNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: StorageMgmtIpSubnet}
++                # Uncomment when including environments/network-management.yaml
++                #-
++                #  type: vlan
++                #  vlan_id: {get_param: ManagementNetworkVlanID}
++                #  addresses:
++                #    -
++                #      ip_netmask: {get_param: ManagementIpSubnet}
++
++outputs:
++  OS::stack_id:
++    description: The OsNetConfigImpl resource.
++    value: {get_resource: OsNetConfigImpl}
+diff --git a/network/config/single-nic-vlans/cinder-storage.yaml b/network/config/single-nic-vlans/cinder-storage.yaml
+new file mode 100644
+index 0000000..e509443
+--- /dev/null
++++ b/network/config/single-nic-vlans/cinder-storage.yaml
+@@ -0,0 +1,129 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Software Config to drive os-net-config to configure VLANs for the
++  cinder storage role.
++
++parameters:
++  ControlPlaneIp:
++    default: ''
++    description: IP address/subnet on the ctlplane network
++    type: string
++  ExternalIpSubnet:
++    default: ''
++    description: IP address/subnet on the external network
++    type: string
++  InternalApiIpSubnet:
++    default: ''
++    description: IP address/subnet on the internal API network
++    type: string
++  StorageIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage network
++    type: string
++  StorageMgmtIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage mgmt network
++    type: string
++  TenantIpSubnet:
++    default: ''
++    description: IP address/subnet on the tenant network
++    type: string
++  ManagementIpSubnet: # Only populated when including environments/network-management.yaml
++    default: ''
++    description: IP address/subnet on the management network
++    type: string
++  InternalApiNetworkVlanID:
++    default: 20
++    description: Vlan ID for the internal_api network traffic.
++    type: number
++  StorageNetworkVlanID:
++    default: 30
++    description: Vlan ID for the storage network traffic.
++    type: number
++  StorageMgmtNetworkVlanID:
++    default: 40
++    description: Vlan ID for the storage mgmt network traffic.
++    type: number
++  ManagementNetworkVlanID:
++    default: 60
++    description: Vlan ID for the management network traffic.
++    type: number
++  ControlPlaneSubnetCidr: # Override this via parameter_defaults
++    default: '24'
++    description: The subnet CIDR of the control plane network.
++    type: string
++  ControlPlaneDefaultRoute: # Override this via parameter_defaults
++    description: The default route of the control plane network.
++    type: string
++  DnsServers: # Override this via parameter_defaults
++    default: []
++    description: A list of DNS servers (2 max for some implementations) that will be added to resolv.conf.
++    type: comma_delimited_list
++  EC2MetadataIp: # Override this via parameter_defaults
++    description: The IP address of the EC2 metadata server.
++    type: string
++
++resources:
++  OsNetConfigImpl:
++    type: OS::Heat::StructuredConfig
++    properties:
++      group: os-apply-config
++      config:
++        os_net_config:
++          network_config:
++            -
++              type: ovs_bridge
++              name: br-storage
++              use_dhcp: false
++              dns_servers: {get_param: DnsServers}
++              addresses:
++                -
++                  ip_netmask:
++                    list_join:
++                      - '/'
++                      - - {get_param: ControlPlaneIp}
++                        - {get_param: ControlPlaneSubnetCidr}
++              routes:
++                -
++                  ip_netmask: 169.254.169.254/32
++                  next_hop: {get_param: EC2MetadataIp}
++                -
++                  default: true
++                  next_hop: {get_param: ControlPlaneDefaultRoute}
++              members:
++                -
++                  type: interface
++                  name: nic1
++                  # force the MAC address of the bridge to this interface
++                  primary: true
++                -
++                  type: vlan
++                  vlan_id: {get_param: InternalApiNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: InternalApiIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: StorageIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageMgmtNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: StorageMgmtIpSubnet}
++                # Uncomment when including environments/network-management.yaml
++                #-
++                #  type: vlan
++                #  vlan_id: {get_param: ManagementNetworkVlanID}
++                #  addresses:
++                #    -
++                #      ip_netmask: {get_param: ManagementIpSubnet}
++
++outputs:
++  OS::stack_id:
++    description: The OsNetConfigImpl resource.
++    value: {get_resource: OsNetConfigImpl}
+diff --git a/network/config/single-nic-vlans/compute.yaml b/network/config/single-nic-vlans/compute.yaml
+new file mode 100644
+index 0000000..8cf6825
+--- /dev/null
++++ b/network/config/single-nic-vlans/compute.yaml
+@@ -0,0 +1,129 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Software Config to drive os-net-config to configure VLANs for the
++  compute role.
++
++parameters:
++  ControlPlaneIp:
++    default: ''
++    description: IP address/subnet on the ctlplane network
++    type: string
++  ExternalIpSubnet:
++    default: ''
++    description: IP address/subnet on the external network
++    type: string
++  InternalApiIpSubnet:
++    default: ''
++    description: IP address/subnet on the internal API network
++    type: string
++  StorageIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage network
++    type: string
++  StorageMgmtIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage mgmt network
++    type: string
++  TenantIpSubnet:
++    default: ''
++    description: IP address/subnet on the tenant network
++    type: string
++  ManagementIpSubnet: # Only populated when including environments/network-management.yaml
++    default: ''
++    description: IP address/subnet on the management network
++    type: string
++  InternalApiNetworkVlanID:
++    default: 20
++    description: Vlan ID for the internal_api network traffic.
++    type: number
++  StorageNetworkVlanID:
++    default: 30
++    description: Vlan ID for the storage network traffic.
++    type: number
++  TenantNetworkVlanID:
++    default: 50
++    description: Vlan ID for the tenant network traffic.
++    type: number
++  ManagementNetworkVlanID:
++    default: 60
++    description: Vlan ID for the management network traffic.
++    type: number
++  ControlPlaneSubnetCidr: # Override this via parameter_defaults
++    default: '24'
++    description: The subnet CIDR of the control plane network.
++    type: string
++  ControlPlaneDefaultRoute: # Override this via parameter_defaults
++    description: The default route of the control plane network.
++    type: string
++  DnsServers: # Override this via parameter_defaults
++    default: []
++    description: A list of DNS servers (2 max for some implementations) that will be added to resolv.conf.
++    type: comma_delimited_list
++  EC2MetadataIp: # Override this via parameter_defaults
++    description: The IP address of the EC2 metadata server.
++    type: string
++
++resources:
++  OsNetConfigImpl:
++    type: OS::Heat::StructuredConfig
++    properties:
++      group: os-apply-config
++      config:
++        os_net_config:
++          network_config:
++            -
++              type: ovs_bridge
++              name: {get_input: bridge_name}
++              use_dhcp: false
++              dns_servers: {get_param: DnsServers}
++              addresses:
++                -
++                  ip_netmask:
++                    list_join:
++                      - '/'
++                      - - {get_param: ControlPlaneIp}
++                        - {get_param: ControlPlaneSubnetCidr}
++              routes:
++                -
++                  ip_netmask: 169.254.169.254/32
++                  next_hop: {get_param: EC2MetadataIp}
++                -
++                  default: true
++                  next_hop: {get_param: ControlPlaneDefaultRoute}
++              members:
++                -
++                  type: interface
++                  name: nic1
++                  # force the MAC address of the bridge to this interface
++                  primary: true
++                -
++                  type: vlan
++                  vlan_id: {get_param: InternalApiNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: InternalApiIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: StorageIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: TenantNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: TenantIpSubnet}
++                # Uncomment when including environments/network-management.yaml
++                #-
++                #  type: vlan
++                #  vlan_id: {get_param: ManagementNetworkVlanID}
++                #  addresses:
++                #    -
++                #      ip_netmask: {get_param: ManagementIpSubnet}
++
++outputs:
++  OS::stack_id:
++    description: The OsNetConfigImpl resource.
++    value: {get_resource: OsNetConfigImpl}
+diff --git a/network/config/single-nic-vlans/controller-no-external.yaml b/network/config/single-nic-vlans/controller-no-external.yaml
+new file mode 100644
+index 0000000..eb5e1e5
+--- /dev/null
++++ b/network/config/single-nic-vlans/controller-no-external.yaml
+@@ -0,0 +1,114 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Software Config to drive os-net-config to configure VLANs for the
++  controller role. No external IP is configured.
++
++parameters:
++  ExternalIpSubnet:
++    default: ''
++    description: IP address/subnet on the external network
++    type: string
++  InternalApiIpSubnet:
++    default: ''
++    description: IP address/subnet on the internal API network
++    type: string
++  StorageIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage network
++    type: string
++  StorageMgmtIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage mgmt network
++    type: string
++  TenantIpSubnet:
++    default: ''
++    description: IP address/subnet on the tenant network
++    type: string
++  ManagementIpSubnet: # Only populated when including environments/network-management.yaml
++    default: ''
++    description: IP address/subnet on the management network
++    type: string
++  ExternalNetworkVlanID:
++    default: 10
++    description: Vlan ID for the external network traffic.
++    type: number
++  InternalApiNetworkVlanID:
++    default: 20
++    description: Vlan ID for the internal_api network traffic.
++    type: number
++  StorageNetworkVlanID:
++    default: 30
++    description: Vlan ID for the storage network traffic.
++    type: number
++  StorageMgmtNetworkVlanID:
++    default: 40
++    description: Vlan ID for the storage mgmt network traffic.
++    type: number
++  TenantNetworkVlanID:
++    default: 50
++    description: Vlan ID for the tenant network traffic.
++    type: number
++  ManagementNetworkVlanID:
++    default: 60
++    description: Vlan ID for the management network traffic.
++    type: number
++  ExternalInterfaceDefaultRoute:
++    default: '10.0.0.1'
++    description: default route for the external network
++    type: string
++
++resources:
++  OsNetConfigImpl:
++    type: OS::Heat::StructuredConfig
++    properties:
++      group: os-apply-config
++      config:
++        os_net_config:
++          network_config:
++            -
++              type: ovs_bridge
++              name: {get_input: bridge_name}
++              use_dhcp: true
++              members:
++                -
++                  type: interface
++                  name: nic1
++                  # force the MAC address of the bridge to this interface
++                  primary: true
++                -
++                  type: vlan
++                  vlan_id: {get_param: InternalApiNetworkVlanID}
++                  addresses:
++                  -
++                    ip_netmask: {get_param: InternalApiIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageNetworkVlanID}
++                  addresses:
++                  -
++                    ip_netmask: {get_param: StorageIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageMgmtNetworkVlanID}
++                  addresses:
++                  -
++                    ip_netmask: {get_param: StorageMgmtIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: TenantNetworkVlanID}
++                  addresses:
++                  -
++                    ip_netmask: {get_param: TenantIpSubnet}
++                # Uncomment when including environments/network-management.yaml
++                #-
++                #  type: vlan
++                #  vlan_id: {get_param: ManagementNetworkVlanID}
++                #  addresses:
++                #    -
++                #      ip_netmask: {get_param: ManagementIpSubnet}
++
++outputs:
++  OS::stack_id:
++    description: The OsNetConfigImpl resource.
++    value: {get_resource: OsNetConfigImpl}
+diff --git a/network/config/single-nic-vlans/controller.yaml b/network/config/single-nic-vlans/controller.yaml
+new file mode 100644
+index 0000000..a5a0745
+--- /dev/null
++++ b/network/config/single-nic-vlans/controller.yaml
+@@ -0,0 +1,150 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Software Config to drive os-net-config to configure VLANs for the
++  controller role.
++
++parameters:
++  ControlPlaneIp:
++    default: ''
++    description: IP address/subnet on the ctlplane network
++    type: string
++  ExternalIpSubnet:
++    default: ''
++    description: IP address/subnet on the external network
++    type: string
++  InternalApiIpSubnet:
++    default: ''
++    description: IP address/subnet on the internal API network
++    type: string
++  StorageIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage network
++    type: string
++  StorageMgmtIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage mgmt network
++    type: string
++  TenantIpSubnet:
++    default: ''
++    description: IP address/subnet on the tenant network
++    type: string
++  ManagementIpSubnet: # Only populated when including environments/network-management.yaml
++    default: ''
++    description: IP address/subnet on the management network
++    type: string
++  ExternalNetworkVlanID:
++    default: 10
++    description: Vlan ID for the external network traffic.
++    type: number
++  InternalApiNetworkVlanID:
++    default: 20
++    description: Vlan ID for the internal_api network traffic.
++    type: number
++  StorageNetworkVlanID:
++    default: 30
++    description: Vlan ID for the storage network traffic.
++    type: number
++  StorageMgmtNetworkVlanID:
++    default: 40
++    description: Vlan ID for the storage mgmt network traffic.
++    type: number
++  TenantNetworkVlanID:
++    default: 50
++    description: Vlan ID for the tenant network traffic.
++    type: number
++  ManagementNetworkVlanID:
++    default: 60
++    description: Vlan ID for the management network traffic.
++    type: number
++  ExternalInterfaceDefaultRoute:
++    default: '10.0.0.1'
++    description: default route for the external network
++    type: string
++  ControlPlaneSubnetCidr: # Override this via parameter_defaults
++    default: '24'
++    description: The subnet CIDR of the control plane network.
++    type: string
++  DnsServers: # Override this via parameter_defaults
++    default: []
++    description: A list of DNS servers (2 max for some implementations) that will be added to resolv.conf.
++    type: comma_delimited_list
++  EC2MetadataIp: # Override this via parameter_defaults
++    description: The IP address of the EC2 metadata server.
++    type: string
++
++resources:
++  OsNetConfigImpl:
++    type: OS::Heat::StructuredConfig
++    properties:
++      group: os-apply-config
++      config:
++        os_net_config:
++          network_config:
++            -
++              type: ovs_bridge
++              name: {get_input: bridge_name}
++              use_dhcp: false
++              dns_servers: {get_param: DnsServers}
++              addresses:
++                -
++                  ip_netmask:
++                    list_join:
++                      - '/'
++                      - - {get_param: ControlPlaneIp}
++                        - {get_param: ControlPlaneSubnetCidr}
++              routes:
++                -
++                  ip_netmask: 169.254.169.254/32
++                  next_hop: {get_param: EC2MetadataIp}
++              members:
++                -
++                  type: interface
++                  name: nic1
++                  # force the MAC address of the bridge to this interface
++                  primary: true
++                -
++                  type: vlan
++                  vlan_id: {get_param: ExternalNetworkVlanID}
++                  addresses:
++                  -
++                    ip_netmask: {get_param: ExternalIpSubnet}
++                  routes:
++                    -
++                      default: true
++                      next_hop: {get_param: ExternalInterfaceDefaultRoute}
++                -
++                  type: vlan
++                  vlan_id: {get_param: InternalApiNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: InternalApiIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: StorageIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageMgmtNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: StorageMgmtIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: TenantNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: TenantIpSubnet}
++                #-  # Uncomment when including environments/network-management.yaml
++                #  type: vlan
++                #  vlan_id: {get_param: ManagementNetworkVlanID}
++                #  addresses:
++                #    -
++                #      ip_netmask: {get_param: ManagementIpSubnet}
++
++outputs:
++  OS::stack_id:
++    description: The OsNetConfigImpl resource.
++    value: {get_resource: OsNetConfigImpl}
+diff --git a/network/config/single-nic-vlans/swift-storage.yaml b/network/config/single-nic-vlans/swift-storage.yaml
+new file mode 100644
+index 0000000..efc0339
+--- /dev/null
++++ b/network/config/single-nic-vlans/swift-storage.yaml
+@@ -0,0 +1,129 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Software Config to drive os-net-config to configure VLANs for the
++  swift storage role.
++
++parameters:
++  ControlPlaneIp:
++    default: ''
++    description: IP address/subnet on the ctlplane network
++    type: string
++  ExternalIpSubnet:
++    default: ''
++    description: IP address/subnet on the external network
++    type: string
++  InternalApiIpSubnet:
++    default: ''
++    description: IP address/subnet on the internal API network
++    type: string
++  StorageIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage network
++    type: string
++  StorageMgmtIpSubnet:
++    default: ''
++    description: IP address/subnet on the storage mgmt network
++    type: string
++  TenantIpSubnet:
++    default: ''
++    description: IP address/subnet on the tenant network
++    type: string
++  ManagementIpSubnet: # Only populated when including environments/network-management.yaml
++    default: ''
++    description: IP address/subnet on the management network
++    type: string
++  InternalApiNetworkVlanID:
++    default: 20
++    description: Vlan ID for the internal_api network traffic.
++    type: number
++  StorageNetworkVlanID:
++    default: 30
++    description: Vlan ID for the storage network traffic.
++    type: number
++  StorageMgmtNetworkVlanID:
++    default: 40
++    description: Vlan ID for the storage mgmt network traffic.
++    type: number
++  ManagementNetworkVlanID:
++    default: 60
++    description: Vlan ID for the management network traffic.
++    type: number
++  ControlPlaneSubnetCidr: # Override this via parameter_defaults
++    default: '24'
++    description: The subnet CIDR of the control plane network.
++    type: string
++  ControlPlaneDefaultRoute: # Override this via parameter_defaults
++    description: The default route of the control plane network.
++    type: string
++  DnsServers: # Override this via parameter_defaults
++    default: []
++    description: A list of DNS servers (2 max for some implementations) that will be added to resolv.conf.
++    type: comma_delimited_list
++  EC2MetadataIp: # Override this via parameter_defaults
++    description: The IP address of the EC2 metadata server.
++    type: string
++
++resources:
++  OsNetConfigImpl:
++    type: OS::Heat::StructuredConfig
++    properties:
++      group: os-apply-config
++      config:
++        os_net_config:
++          network_config:
++            -
++              type: ovs_bridge
++              name: br-storage
++              use_dhcp: false
++              dns_servers: {get_param: DnsServers}
++              addresses:
++                -
++                  ip_netmask:
++                    list_join:
++                      - '/'
++                      - - {get_param: ControlPlaneIp}
++                        - {get_param: ControlPlaneSubnetCidr}
++              routes:
++                -
++                  ip_netmask: 169.254.169.254/32
++                  next_hop: {get_param: EC2MetadataIp}
++                -
++                  default: true
++                  next_hop: {get_param: ControlPlaneDefaultRoute}
++              members:
++                -
++                  type: interface
++                  name: nic1
++                  # force the MAC address of the bridge to this interface
++                  primary: true
++                -
++                  type: vlan
++                  vlan_id: {get_param: InternalApiNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: InternalApiIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: StorageIpSubnet}
++                -
++                  type: vlan
++                  vlan_id: {get_param: StorageMgmtNetworkVlanID}
++                  addresses:
++                    -
++                      ip_netmask: {get_param: StorageMgmtIpSubnet}
++                # Uncomment when including environments/network-management.yaml
++                #-
++                #  type: vlan
++                #  vlan_id: {get_param: ManagementNetworkVlanID}
++                #  addresses:
++                #    -
++                #      ip_netmask: {get_param: ManagementIpSubnet}
++
++outputs:
++  OS::stack_id:
++    description: The OsNetConfigImpl resource.
++    value: {get_resource: OsNetConfigImpl}
+diff --git a/network/endpoints/build_endpoint_map.py b/network/endpoints/build_endpoint_map.py
+new file mode 100755
+index 0000000..d8cdee3
+--- /dev/null
++++ b/network/endpoints/build_endpoint_map.py
+@@ -0,0 +1,277 @@
++#!/usr/bin/env python
++
++"""
++Generate the endpoint_map.yaml template from data in the endpoint_data.yaml
++file.
++
++By default the files in the same directory as this script are operated on, but
++different files can be optionally specified on the command line.
++
++The --check option verifies that the current output file is up-to-date with the
++latest data in the input file. The script exits with status code 2 if a
++mismatch is detected.
++"""
++
++from __future__ import print_function
++
++
++__all__ = ['load_endpoint_data', 'generate_endpoint_map_template',
++           'write_template', 'build_endpoint_map', 'check_up_to_date']
++
++
++import collections
++import copy
++import itertools
++import os
++import sys
++import yaml
++
++
++(IN_FILE, OUT_FILE) = ('endpoint_data.yaml', 'endpoint_map.yaml')
++
++SUBST = (SUBST_IP_ADDRESS, SUBST_CLOUDNAME) = ('IP_ADDRESS', 'CLOUDNAME')
++PARAMS = (PARAM_CLOUDNAME, PARAM_ENDPOINTMAP) = ('CloudName', 'EndpointMap')
++FIELDS = (F_PORT, F_PROTOCOL, F_HOST) = ('port', 'protocol', 'host')
++
++ENDPOINT_TYPES = frozenset(['Internal', 'Public', 'Admin'])
++
++
++def get_file(default_fn, override=None, writable=False):
++    if override == '-':
++        if writable:
++            return sys.stdout
++        else:
++            return sys.stdin
++
++    if override is not None:
++        filename = override
++    else:
++        filename = os.path.join(os.path.dirname(__file__), default_fn)
++
++    return open(filename, 'w' if writable else 'r')
++
++
++def load_endpoint_data(infile=None):
++    with get_file(IN_FILE, infile) as f:
++        return yaml.safe_load(f)
++
++
++def vip_param_name(endpoint_type_defn):
++    return endpoint_type_defn['vip_param'] + 'VirtualIP'
++
++
++def vip_param_names(config):
++    def ep_types(svc):
++        return (v for k, v in svc.items() if k in ENDPOINT_TYPES or not k)
++
++    return set(vip_param_name(defn)
++               for svc in config.values() for defn in ep_types(svc))
++
++
++def endpoint_map_default(config):
++    def map_item(ep_name, ep_type, svc):
++        values = collections.OrderedDict([
++            (F_PROTOCOL, svc.get(F_PROTOCOL, 'http')),
++            (F_PORT, str(svc[ep_type].get(F_PORT, svc[F_PORT]))),
++            (F_HOST, SUBST_IP_ADDRESS),
++        ])
++        return ep_name + ep_type, values
++
++    return collections.OrderedDict(map_item(ep_name, ep_type, svc)
++                                   for ep_name, svc in sorted(config.items())
++                                   for ep_type in sorted(set(svc) &
++                                                         ENDPOINT_TYPES))
++
++
++def make_parameter(ptype, default, description=None):
++    param = collections.OrderedDict([('type', ptype), ('default', default)])
++    if description is not None:
++        param['description'] = description
++    return param
++
++
++def template_parameters(config):
++    params = collections.OrderedDict((n, make_parameter('string', ''))
++                                     for n in sorted(vip_param_names(config)))
++
++    params[PARAM_ENDPOINTMAP] = make_parameter('json',
++                                               endpoint_map_default(config),
++                                               'Mapping of service endpoint '
++                                               '-> protocol. Typically set '
++                                               'via parameter_defaults in the '
++                                               'resource registry.')
++
++    params[PARAM_CLOUDNAME] = make_parameter('string',
++                                             'overcloud',
++                                             'The DNS name of this cloud. '
++                                             'e.g. ci-overcloud.tripleo.org')
++    return params
++
++
++def template_output_definition(endpoint_name,
++                               endpoint_variant,
++                               endpoint_type,
++                               vip_param,
++                               uri_suffix=None,
++                               name_override=None):
++    def extract_field(field):
++        assert field in FIELDS
++        return {'get_param': ['EndpointMap',
++                              endpoint_name + endpoint_type,
++                              copy.copy(field)]}
++
++    port = extract_field(F_PORT)
++    protocol = extract_field(F_PROTOCOL)
++    host = {
++        'str_replace': collections.OrderedDict([
++            ('template', extract_field(F_HOST)),
++            ('params', {
++                SUBST_IP_ADDRESS: {'get_param': vip_param},
++                SUBST_CLOUDNAME: {'get_param': PARAM_CLOUDNAME},
++            })
++        ])
++    }
++    uri_fields = [protocol, '://', copy.deepcopy(host), ':', port]
++    uri_fields_suffix = (copy.deepcopy(uri_fields) +
++                         ([uri_suffix] if uri_suffix is not None else []))
++
++    name = name_override if name_override is not None else (endpoint_name +
++                                                            endpoint_variant +
++                                                            endpoint_type)
++
++    return name, {
++        'host': host,
++        'port': extract_field('port'),
++        'protocol': extract_field('protocol'),
++        'uri': {
++            'list_join': ['', uri_fields_suffix]
++        },
++        'uri_no_suffix': {
++            'list_join': ['', uri_fields]
++        },
++    }
++
++
++def template_endpoint_items(config):
++    def get_svc_endpoints(ep_name, svc):
++        for ep_type in set(svc) & ENDPOINT_TYPES:
++            defn = svc[ep_type]
++            for variant, suffix in defn.get('uri_suffixes',
++                                            {'': None}).items():
++                name_override = defn.get('names', {}).get(variant)
++                yield template_output_definition(ep_name, variant, ep_type,
++                                                 vip_param_name(defn),
++                                                 suffix,
++                                                 name_override)
++
++    return itertools.chain.from_iterable(sorted(get_svc_endpoints(ep_name,
++                                                                  svc))
++                                         for (ep_name,
++                                              svc) in sorted(config.items()))
++
++
++def generate_endpoint_map_template(config):
++    return collections.OrderedDict([
++        ('heat_template_version', '2015-04-30'),
++        ('description', 'A map of OpenStack endpoints. Since the endpoints '
++         'are URLs, we need to have brackets around IPv6 IP addresses. The '
++         'inputs to these parameters come from net_ip_uri_map, which will '
++         'include these brackets in IPv6 addresses.'),
++        ('parameters', template_parameters(config)),
++        ('outputs', {
++            'endpoint_map': {
++                'value':
++                    collections.OrderedDict(template_endpoint_items(config))
++            }
++        }),
++    ])
++
++
++autogen_warning = """### DO NOT MODIFY THIS FILE
++### This file is automatically generated from endpoint_data.yaml
++### by the script build_endpoint_map.py
++
++"""
++
++
++class TemplateDumper(yaml.SafeDumper):
++    def represent_ordered_dict(self, data):
++        return self.represent_dict(data.items())
++
++
++TemplateDumper.add_representer(collections.OrderedDict,
++                               TemplateDumper.represent_ordered_dict)
++
++
++def write_template(template, filename=None):
++    with get_file(OUT_FILE, filename, writable=True) as f:
++        f.write(autogen_warning)
++        yaml.dump(template, f, TemplateDumper, width=68)
++
++
++def read_template(template, filename=None):
++    with get_file(OUT_FILE, filename) as f:
++        return yaml.safe_load(f)
++
++
++def build_endpoint_map(output_filename=None, input_filename=None):
++    if output_filename is not None and output_filename == input_filename:
++        raise Exception('Cannot read from and write to the same file')
++    config = load_endpoint_data(input_filename)
++    template = generate_endpoint_map_template(config)
++    write_template(template, output_filename)
++
++
++def check_up_to_date(output_filename=None, input_filename=None):
++    if output_filename is not None and output_filename == input_filename:
++        raise Exception('Input and output filenames must be different')
++    config = load_endpoint_data(input_filename)
++    template = generate_endpoint_map_template(config)
++    existing_template = read_template(output_filename)
++    return existing_template == template
++
++
++def get_options():
++    from optparse import OptionParser
++
++    parser = OptionParser('usage: %prog'
++                          ' [-i INPUT_FILE] [-o OUTPUT_FILE] [--check]',
++                          description=__doc__)
++    parser.add_option('-i', '--input', dest='input_file', action='store',
++                      default=None,
++                      help='Specify a different endpoint data file')
++    parser.add_option('-o', '--output', dest='output_file', action='store',
++                      default=None,
++                      help='Specify a different endpoint map template file')
++    parser.add_option('-c', '--check', dest='check', action='store_true',
++                      default=False, help='Check that the output file is '
++                                          'up to date with the data')
++    parser.add_option('-d', '--debug', dest='debug', action='store_true',
++                      default=False, help='Print stack traces on error')
++
++    return parser.parse_args()
++
++
++def main():
++    options, args = get_options()
++    if args:
++        print('Warning: ignoring positional args: %s' % ' '.join(args),
++              file=sys.stderr)
++
++    try:
++        if options.check:
++            if not check_up_to_date(options.output_file, options.input_file):
++                print('EndpointMap template does not match input data',
++                      file=sys.stderr)
++                sys.exit(2)
++        else:
++            build_endpoint_map(options.output_file, options.input_file)
++    except Exception as exc:
++        if options.debug:
++            raise
++        print('%s: %s' % (type(exc).__name__, str(exc)), file=sys.stderr)
++        sys.exit(1)
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/network/endpoints/endpoint_data.yaml b/network/endpoints/endpoint_data.yaml
+new file mode 100644
+index 0000000..46148df
+--- /dev/null
++++ b/network/endpoints/endpoint_data.yaml
+@@ -0,0 +1,185 @@
++# Data in this file is used to generate the endpoint_map.yaml template.
++# Run the script build_endpoint_map.py to regenerate the file.
++
++Ceilometer:
++    Internal:
++        vip_param: CeilometerApi
++    Public:
++        vip_param: Public
++    Admin:
++        vip_param: CeilometerApi
++    port: 8777
++
++Cinder:
++    Internal:
++        vip_param: CinderApi
++        uri_suffixes:
++            '': /v1/%(tenant_id)s
++            V2: /v2/%(tenant_id)s
++    Public:
++        vip_param: Public
++        uri_suffixes:
++            '': /v1/%(tenant_id)s
++            V2: /v2/%(tenant_id)s
++    Admin:
++        vip_param: CinderApi
++        uri_suffixes:
++            '': /v1/%(tenant_id)s
++            V2: /v2/%(tenant_id)s
++    port: 8776
++
++Glance:
++    Internal:
++        vip_param: GlanceApi
++    Public:
++        vip_param: Public
++    Admin:
++        vip_param: GlanceApi
++    port: 9292
++
++Mysql:
++    '':
++        vip_param: Mysql
++
++Heat:
++    Internal:
++        vip_param: HeatApi
++        uri_suffixes:
++            '': /v1/%(tenant_id)s
++    Public:
++        vip_param: Public
++        uri_suffixes:
++            '': /v1/%(tenant_id)s
++    Admin:
++        vip_param: HeatApi
++        uri_suffixes:
++            '': /v1/%(tenant_id)s
++    port: 8004
++
++Horizon:
++    Public:
++        vip_param: Public
++        uri_suffixes:
++            '': /dashboard
++    port: 80
++
++Keystone:
++    Internal:
++        vip_param: KeystonePublicApi
++        uri_suffixes:
++            '': /v2.0
++            EC2: /v2.0/ec2tokens
++        names:
++            EC2: KeystoneEC2
++    Public:
++        vip_param: Public
++        uri_suffixes:
++            '': /v2.0
++    Admin:
++        vip_param: KeystoneAdminApi
++        uri_suffixes:
++            '': /v2.0
++        port: 35357
++    port: 5000
++
++# TODO(ayoung): V3 is a temporary fix. Endpoints should be versionless.
++# Required for https://bugs.launchpad.net/puppet-nova/+bug/1542486
++KeystoneV3:
++    Internal:
++        vip_param: KeystonePublicApi
++        uri_suffixes:
++            '': /v3
++    Public:
++        vip_param: Public
++        uri_suffixes:
++            '': /v3
++    Admin:
++        vip_param: KeystoneAdminApi
++        uri_suffixes:
++            '': /v3
++        port: 35357
++    port: 5000
++
++Neutron:
++    Internal:
++        vip_param: NeutronApi
++    Public:
++        vip_param: Public
++    Admin:
++        vip_param: NeutronApi
++    port: 9696
++
++Nova:
++    Internal:
++        vip_param: NovaApi
++        uri_suffixes:
++            '': /v2.1/%(tenant_id)s
++            V3: /v3
++    Public:
++        vip_param: Public
++        uri_suffixes:
++            '': /v2.1/%(tenant_id)s
++            V3: /v3
++    Admin:
++        vip_param: NovaApi
++        uri_suffixes:
++            '': /v2.1/%(tenant_id)s
++            V3: /v3
++    port: 8774
++
++NovaEC2:
++    Internal:
++        vip_param: NovaApi
++        uri_suffixes:
++            '': /services/Cloud
++    Public:
++        vip_param: Public
++        uri_suffixes:
++            '': /services/Cloud
++    Admin:
++        vip_param: NovaApi
++        uri_suffixes:
++            '': /services/Admin
++    port: 8773
++
++NovaVNCProxy:
++    Internal:
++        vip_param: NovaApi
++    Public:
++        vip_param: Public
++    Admin:
++        vip_param: NovaApi
++    port: 6080
++
++Swift:
++    Internal:
++        vip_param: SwiftProxy
++        uri_suffixes:
++            '': /v1/AUTH_%(tenant_id)s
++            S3:
++    Public:
++        vip_param: Public
++        uri_suffixes:
++            '': /v1/AUTH_%(tenant_id)s
++            S3:
++    Admin:
++        vip_param: SwiftProxy
++        uri_suffixes:
++            '':
++            S3:
++    port: 8080
++
++Sahara:
++    Internal:
++        vip_param: SaharaApi
++        uri_suffixes:
++            '': /v1.1/%(tenant_id)s
++    Public:
++        vip_param: SaharaApi
++        uri_suffixes:
++            '': /v1.1/%(tenant_id)s
++    Admin:
++        vip_param: SaharaApi
++        uri_suffixes:
++            '': /v1.1/%(tenant_id)s
++    port: 8386
+diff --git a/network/endpoints/endpoint_map.yaml b/network/endpoints/endpoint_map.yaml
+new file mode 100644
+index 0000000..8f0f587
+--- /dev/null
++++ b/network/endpoints/endpoint_map.yaml
+@@ -0,0 +1,1886 @@
++### DO NOT MODIFY THIS FILE
++### This file is automatically generated from endpoint_data.yaml
++### by the script build_endpoint_map.py
++
++heat_template_version: '2015-04-30'
++description: A map of OpenStack endpoints. Since the endpoints are URLs,
++  we need to have brackets around IPv6 IP addresses. The inputs to these
++  parameters come from net_ip_uri_map, which will include these brackets
++  in IPv6 addresses.
++parameters:
++  CeilometerApiVirtualIP: {type: string, default: ''}
++  CinderApiVirtualIP: {type: string, default: ''}
++  GlanceApiVirtualIP: {type: string, default: ''}
++  HeatApiVirtualIP: {type: string, default: ''}
++  KeystoneAdminApiVirtualIP: {type: string, default: ''}
++  KeystonePublicApiVirtualIP: {type: string, default: ''}
++  MysqlVirtualIP: {type: string, default: ''}
++  NeutronApiVirtualIP: {type: string, default: ''}
++  NovaApiVirtualIP: {type: string, default: ''}
++  PublicVirtualIP: {type: string, default: ''}
++  SaharaApiVirtualIP: {type: string, default: ''}
++  SwiftProxyVirtualIP: {type: string, default: ''}
++  EndpointMap:
++    type: json
++    default:
++      CeilometerAdmin: {protocol: http, port: '8777', host: IP_ADDRESS}
++      CeilometerInternal: {protocol: http, port: '8777', host: IP_ADDRESS}
++      CeilometerPublic: {protocol: http, port: '8777', host: IP_ADDRESS}
++      CinderAdmin: {protocol: http, port: '8776', host: IP_ADDRESS}
++      CinderInternal: {protocol: http, port: '8776', host: IP_ADDRESS}
++      CinderPublic: {protocol: http, port: '8776', host: IP_ADDRESS}
++      GlanceAdmin: {protocol: http, port: '9292', host: IP_ADDRESS}
++      GlanceInternal: {protocol: http, port: '9292', host: IP_ADDRESS}
++      GlancePublic: {protocol: http, port: '9292', host: IP_ADDRESS}
++      HeatAdmin: {protocol: http, port: '8004', host: IP_ADDRESS}
++      HeatInternal: {protocol: http, port: '8004', host: IP_ADDRESS}
++      HeatPublic: {protocol: http, port: '8004', host: IP_ADDRESS}
++      HorizonPublic: {protocol: http, port: '80', host: IP_ADDRESS}
++      KeystoneAdmin: {protocol: http, port: '35357', host: IP_ADDRESS}
++      KeystoneInternal: {protocol: http, port: '5000', host: IP_ADDRESS}
++      KeystonePublic: {protocol: http, port: '5000', host: IP_ADDRESS}
++      KeystoneV3Admin: {protocol: http, port: '35357', host: IP_ADDRESS}
++      KeystoneV3Internal: {protocol: http, port: '5000', host: IP_ADDRESS}
++      KeystoneV3Public: {protocol: http, port: '5000', host: IP_ADDRESS}
++      NeutronAdmin: {protocol: http, port: '9696', host: IP_ADDRESS}
++      NeutronInternal: {protocol: http, port: '9696', host: IP_ADDRESS}
++      NeutronPublic: {protocol: http, port: '9696', host: IP_ADDRESS}
++      NovaAdmin: {protocol: http, port: '8774', host: IP_ADDRESS}
++      NovaInternal: {protocol: http, port: '8774', host: IP_ADDRESS}
++      NovaPublic: {protocol: http, port: '8774', host: IP_ADDRESS}
++      NovaEC2Admin: {protocol: http, port: '8773', host: IP_ADDRESS}
++      NovaEC2Internal: {protocol: http, port: '8773', host: IP_ADDRESS}
++      NovaEC2Public: {protocol: http, port: '8773', host: IP_ADDRESS}
++      NovaVNCProxyAdmin: {protocol: http, port: '6080', host: IP_ADDRESS}
++      NovaVNCProxyInternal: {protocol: http, port: '6080', host: IP_ADDRESS}
++      NovaVNCProxyPublic: {protocol: http, port: '6080', host: IP_ADDRESS}
++      SaharaAdmin: {protocol: http, port: '8386', host: IP_ADDRESS}
++      SaharaInternal: {protocol: http, port: '8386', host: IP_ADDRESS}
++      SaharaPublic: {protocol: http, port: '8386', host: IP_ADDRESS}
++      SwiftAdmin: {protocol: http, port: '8080', host: IP_ADDRESS}
++      SwiftInternal: {protocol: http, port: '8080', host: IP_ADDRESS}
++      SwiftPublic: {protocol: http, port: '8080', host: IP_ADDRESS}
++    description: Mapping of service endpoint -> protocol. Typically set
++      via parameter_defaults in the resource registry.
++  CloudName: {type: string, default: overcloud, description: The DNS name
++      of this cloud. e.g. ci-overcloud.tripleo.org}
++outputs:
++  endpoint_map:
++    value:
++      CeilometerAdmin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, CeilometerAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: CeilometerApiVirtualIP}
++        port:
++          get_param: [EndpointMap, CeilometerAdmin, port]
++        protocol:
++          get_param: [EndpointMap, CeilometerAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CeilometerAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CeilometerAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CeilometerApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CeilometerAdmin, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CeilometerAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CeilometerAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CeilometerApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CeilometerAdmin, port]
++      CeilometerInternal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, CeilometerInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: CeilometerApiVirtualIP}
++        port:
++          get_param: [EndpointMap, CeilometerInternal, port]
++        protocol:
++          get_param: [EndpointMap, CeilometerInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CeilometerInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CeilometerInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CeilometerApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CeilometerInternal, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CeilometerInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CeilometerInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CeilometerApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CeilometerInternal, port]
++      CeilometerPublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, CeilometerPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, CeilometerPublic, port]
++        protocol:
++          get_param: [EndpointMap, CeilometerPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CeilometerPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CeilometerPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CeilometerPublic, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CeilometerPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CeilometerPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CeilometerPublic, port]
++      CinderAdmin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, CinderAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: CinderApiVirtualIP}
++        port:
++          get_param: [EndpointMap, CinderAdmin, port]
++        protocol:
++          get_param: [EndpointMap, CinderAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CinderApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderAdmin, port]
++            - /v1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CinderApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderAdmin, port]
++      CinderInternal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, CinderInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: CinderApiVirtualIP}
++        port:
++          get_param: [EndpointMap, CinderInternal, port]
++        protocol:
++          get_param: [EndpointMap, CinderInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CinderApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderInternal, port]
++            - /v1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CinderApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderInternal, port]
++      CinderPublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, CinderPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, CinderPublic, port]
++        protocol:
++          get_param: [EndpointMap, CinderPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderPublic, port]
++            - /v1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderPublic, port]
++      CinderV2Admin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, CinderAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: CinderApiVirtualIP}
++        port:
++          get_param: [EndpointMap, CinderAdmin, port]
++        protocol:
++          get_param: [EndpointMap, CinderAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CinderApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderAdmin, port]
++            - /v2/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CinderApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderAdmin, port]
++      CinderV2Internal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, CinderInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: CinderApiVirtualIP}
++        port:
++          get_param: [EndpointMap, CinderInternal, port]
++        protocol:
++          get_param: [EndpointMap, CinderInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CinderApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderInternal, port]
++            - /v2/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: CinderApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderInternal, port]
++      CinderV2Public:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, CinderPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, CinderPublic, port]
++        protocol:
++          get_param: [EndpointMap, CinderPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderPublic, port]
++            - /v2/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, CinderPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, CinderPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, CinderPublic, port]
++      GlanceAdmin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, GlanceAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: GlanceApiVirtualIP}
++        port:
++          get_param: [EndpointMap, GlanceAdmin, port]
++        protocol:
++          get_param: [EndpointMap, GlanceAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, GlanceAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, GlanceAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: GlanceApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, GlanceAdmin, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, GlanceAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, GlanceAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: GlanceApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, GlanceAdmin, port]
++      GlanceInternal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, GlanceInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: GlanceApiVirtualIP}
++        port:
++          get_param: [EndpointMap, GlanceInternal, port]
++        protocol:
++          get_param: [EndpointMap, GlanceInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, GlanceInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, GlanceInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: GlanceApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, GlanceInternal, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, GlanceInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, GlanceInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: GlanceApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, GlanceInternal, port]
++      GlancePublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, GlancePublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, GlancePublic, port]
++        protocol:
++          get_param: [EndpointMap, GlancePublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, GlancePublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, GlancePublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, GlancePublic, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, GlancePublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, GlancePublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, GlancePublic, port]
++      HeatAdmin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, HeatAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: HeatApiVirtualIP}
++        port:
++          get_param: [EndpointMap, HeatAdmin, port]
++        protocol:
++          get_param: [EndpointMap, HeatAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, HeatAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, HeatAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: HeatApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, HeatAdmin, port]
++            - /v1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, HeatAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, HeatAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: HeatApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, HeatAdmin, port]
++      HeatInternal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, HeatInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: HeatApiVirtualIP}
++        port:
++          get_param: [EndpointMap, HeatInternal, port]
++        protocol:
++          get_param: [EndpointMap, HeatInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, HeatInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, HeatInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: HeatApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, HeatInternal, port]
++            - /v1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, HeatInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, HeatInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: HeatApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, HeatInternal, port]
++      HeatPublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, HeatPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, HeatPublic, port]
++        protocol:
++          get_param: [EndpointMap, HeatPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, HeatPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, HeatPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, HeatPublic, port]
++            - /v1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, HeatPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, HeatPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, HeatPublic, port]
++      HorizonPublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, HorizonPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, HorizonPublic, port]
++        protocol:
++          get_param: [EndpointMap, HorizonPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, HorizonPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, HorizonPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, HorizonPublic, port]
++            - /dashboard
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, HorizonPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, HorizonPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, HorizonPublic, port]
++      KeystoneAdmin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, KeystoneAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: KeystoneAdminApiVirtualIP}
++        port:
++          get_param: [EndpointMap, KeystoneAdmin, port]
++        protocol:
++          get_param: [EndpointMap, KeystoneAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: KeystoneAdminApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneAdmin, port]
++            - /v2.0
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: KeystoneAdminApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneAdmin, port]
++      KeystoneEC2:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, KeystoneInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: KeystonePublicApiVirtualIP}
++        port:
++          get_param: [EndpointMap, KeystoneInternal, port]
++        protocol:
++          get_param: [EndpointMap, KeystoneInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: KeystonePublicApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneInternal, port]
++            - /v2.0/ec2tokens
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: KeystonePublicApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneInternal, port]
++      KeystoneInternal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, KeystoneInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: KeystonePublicApiVirtualIP}
++        port:
++          get_param: [EndpointMap, KeystoneInternal, port]
++        protocol:
++          get_param: [EndpointMap, KeystoneInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: KeystonePublicApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneInternal, port]
++            - /v2.0
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: KeystonePublicApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneInternal, port]
++      KeystonePublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, KeystonePublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, KeystonePublic, port]
++        protocol:
++          get_param: [EndpointMap, KeystonePublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystonePublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystonePublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystonePublic, port]
++            - /v2.0
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystonePublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystonePublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystonePublic, port]
++      KeystoneV3Admin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, KeystoneV3Admin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: KeystoneAdminApiVirtualIP}
++        port:
++          get_param: [EndpointMap, KeystoneV3Admin, port]
++        protocol:
++          get_param: [EndpointMap, KeystoneV3Admin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneV3Admin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneV3Admin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: KeystoneAdminApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneV3Admin, port]
++            - /v3
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneV3Admin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneV3Admin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: KeystoneAdminApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneV3Admin, port]
++      KeystoneV3Internal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, KeystoneV3Internal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: KeystonePublicApiVirtualIP}
++        port:
++          get_param: [EndpointMap, KeystoneV3Internal, port]
++        protocol:
++          get_param: [EndpointMap, KeystoneV3Internal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneV3Internal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneV3Internal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: KeystonePublicApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneV3Internal, port]
++            - /v3
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneV3Internal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneV3Internal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: KeystonePublicApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneV3Internal, port]
++      KeystoneV3Public:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, KeystoneV3Public, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, KeystoneV3Public, port]
++        protocol:
++          get_param: [EndpointMap, KeystoneV3Public, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneV3Public, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneV3Public, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneV3Public, port]
++            - /v3
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, KeystoneV3Public, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, KeystoneV3Public, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, KeystoneV3Public, port]
++      NeutronAdmin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NeutronAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: NeutronApiVirtualIP}
++        port:
++          get_param: [EndpointMap, NeutronAdmin, port]
++        protocol:
++          get_param: [EndpointMap, NeutronAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NeutronAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NeutronAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NeutronApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NeutronAdmin, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NeutronAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NeutronAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NeutronApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NeutronAdmin, port]
++      NeutronInternal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NeutronInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: NeutronApiVirtualIP}
++        port:
++          get_param: [EndpointMap, NeutronInternal, port]
++        protocol:
++          get_param: [EndpointMap, NeutronInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NeutronInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NeutronInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NeutronApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NeutronInternal, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NeutronInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NeutronInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NeutronApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NeutronInternal, port]
++      NeutronPublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NeutronPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, NeutronPublic, port]
++        protocol:
++          get_param: [EndpointMap, NeutronPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NeutronPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NeutronPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NeutronPublic, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NeutronPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NeutronPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NeutronPublic, port]
++      NovaAdmin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: NovaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaAdmin, port]
++        protocol:
++          get_param: [EndpointMap, NovaAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaAdmin, port]
++            - /v2.1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaAdmin, port]
++      NovaInternal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: NovaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaInternal, port]
++        protocol:
++          get_param: [EndpointMap, NovaInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaInternal, port]
++            - /v2.1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaInternal, port]
++      NovaPublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaPublic, port]
++        protocol:
++          get_param: [EndpointMap, NovaPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaPublic, port]
++            - /v2.1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaPublic, port]
++      NovaV3Admin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: NovaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaAdmin, port]
++        protocol:
++          get_param: [EndpointMap, NovaAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaAdmin, port]
++            - /v3
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaAdmin, port]
++      NovaV3Internal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: NovaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaInternal, port]
++        protocol:
++          get_param: [EndpointMap, NovaInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaInternal, port]
++            - /v3
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaInternal, port]
++      NovaV3Public:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaPublic, port]
++        protocol:
++          get_param: [EndpointMap, NovaPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaPublic, port]
++            - /v3
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaPublic, port]
++      NovaEC2Admin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaEC2Admin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: NovaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaEC2Admin, port]
++        protocol:
++          get_param: [EndpointMap, NovaEC2Admin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaEC2Admin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaEC2Admin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaEC2Admin, port]
++            - /services/Admin
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaEC2Admin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaEC2Admin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaEC2Admin, port]
++      NovaEC2Internal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaEC2Internal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: NovaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaEC2Internal, port]
++        protocol:
++          get_param: [EndpointMap, NovaEC2Internal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaEC2Internal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaEC2Internal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaEC2Internal, port]
++            - /services/Cloud
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaEC2Internal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaEC2Internal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaEC2Internal, port]
++      NovaEC2Public:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaEC2Public, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaEC2Public, port]
++        protocol:
++          get_param: [EndpointMap, NovaEC2Public, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaEC2Public, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaEC2Public, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaEC2Public, port]
++            - /services/Cloud
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaEC2Public, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaEC2Public, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaEC2Public, port]
++      NovaVNCProxyAdmin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaVNCProxyAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: NovaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaVNCProxyAdmin, port]
++        protocol:
++          get_param: [EndpointMap, NovaVNCProxyAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaVNCProxyAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaVNCProxyAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaVNCProxyAdmin, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaVNCProxyAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaVNCProxyAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaVNCProxyAdmin, port]
++      NovaVNCProxyInternal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaVNCProxyInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: NovaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaVNCProxyInternal, port]
++        protocol:
++          get_param: [EndpointMap, NovaVNCProxyInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaVNCProxyInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaVNCProxyInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaVNCProxyInternal, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaVNCProxyInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaVNCProxyInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: NovaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaVNCProxyInternal, port]
++      NovaVNCProxyPublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, NovaVNCProxyPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, NovaVNCProxyPublic, port]
++        protocol:
++          get_param: [EndpointMap, NovaVNCProxyPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaVNCProxyPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaVNCProxyPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaVNCProxyPublic, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, NovaVNCProxyPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, NovaVNCProxyPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, NovaVNCProxyPublic, port]
++      SaharaAdmin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, SaharaAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: SaharaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, SaharaAdmin, port]
++        protocol:
++          get_param: [EndpointMap, SaharaAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SaharaAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SaharaAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SaharaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SaharaAdmin, port]
++            - /v1.1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SaharaAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SaharaAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SaharaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SaharaAdmin, port]
++      SaharaInternal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, SaharaInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: SaharaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, SaharaInternal, port]
++        protocol:
++          get_param: [EndpointMap, SaharaInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SaharaInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SaharaInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SaharaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SaharaInternal, port]
++            - /v1.1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SaharaInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SaharaInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SaharaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SaharaInternal, port]
++      SaharaPublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, SaharaPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: SaharaApiVirtualIP}
++        port:
++          get_param: [EndpointMap, SaharaPublic, port]
++        protocol:
++          get_param: [EndpointMap, SaharaPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SaharaPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SaharaPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SaharaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SaharaPublic, port]
++            - /v1.1/%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SaharaPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SaharaPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SaharaApiVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SaharaPublic, port]
++      SwiftAdmin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, SwiftAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++        port:
++          get_param: [EndpointMap, SwiftAdmin, port]
++        protocol:
++          get_param: [EndpointMap, SwiftAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftAdmin, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftAdmin, port]
++      SwiftInternal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, SwiftInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++        port:
++          get_param: [EndpointMap, SwiftInternal, port]
++        protocol:
++          get_param: [EndpointMap, SwiftInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftInternal, port]
++            - /v1/AUTH_%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftInternal, port]
++      SwiftPublic:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, SwiftPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, SwiftPublic, port]
++        protocol:
++          get_param: [EndpointMap, SwiftPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftPublic, port]
++            - /v1/AUTH_%(tenant_id)s
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftPublic, port]
++      SwiftS3Admin:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, SwiftAdmin, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++        port:
++          get_param: [EndpointMap, SwiftAdmin, port]
++        protocol:
++          get_param: [EndpointMap, SwiftAdmin, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftAdmin, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftAdmin, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftAdmin, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftAdmin, port]
++      SwiftS3Internal:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, SwiftInternal, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++        port:
++          get_param: [EndpointMap, SwiftInternal, port]
++        protocol:
++          get_param: [EndpointMap, SwiftInternal, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftInternal, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftInternal, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftInternal, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: SwiftProxyVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftInternal, port]
++      SwiftS3Public:
++        host:
++          str_replace:
++            template:
++              get_param: [EndpointMap, SwiftPublic, host]
++            params:
++              CLOUDNAME: {get_param: CloudName}
++              IP_ADDRESS: {get_param: PublicVirtualIP}
++        port:
++          get_param: [EndpointMap, SwiftPublic, port]
++        protocol:
++          get_param: [EndpointMap, SwiftPublic, protocol]
++        uri:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftPublic, port]
++        uri_no_suffix:
++          list_join:
++          - ''
++          - - get_param: [EndpointMap, SwiftPublic, protocol]
++            - ://
++            - str_replace:
++                template:
++                  get_param: [EndpointMap, SwiftPublic, host]
++                params:
++                  CLOUDNAME: {get_param: CloudName}
++                  IP_ADDRESS: {get_param: PublicVirtualIP}
++            - ':'
++            - get_param: [EndpointMap, SwiftPublic, port]
+diff --git a/network/external.yaml b/network/external.yaml
+new file mode 100644
+index 0000000..3b24da7
+--- /dev/null
++++ b/network/external.yaml
+@@ -0,0 +1,62 @@
++heat_template_version: 2015-04-30
++
++description: >
++  External network. Public traffic, Neutron l3router for floating IPs/SNAT, etc.
++
++parameters:
++  # the defaults here work for static IP assignment (IPAM) only
++  ExternalNetCidr:
++    default: '10.0.0.0/24'
++    description: Cidr for the external network.
++    type: string
++  ExternalNetValueSpecs:
++    default: {'provider:physical_network': 'external', 'provider:network_type': 'flat'}
++    description: Value specs for the external network.
++    type: json
++  ExternalNetAdminStateUp:
++    default: false
++    description: This admin state of the network.
++    type: boolean
++  ExternalNetEnableDHCP:
++    default: false
++    description: Whether to enable DHCP on the associated subnet.
++    type: boolean
++  ExternalNetShared:
++    default: false
++    description: Whether this network is shared across all tenants.
++    type: boolean
++  ExternalNetName:
++    default: external
++    description: The name of the external network.
++    type: string
++  ExternalSubnetName:
++    default: external_subnet
++    description: The name of the external subnet in Neutron.
++    type: string
++  ExternalAllocationPools:
++    default: [{'start': '10.0.0.4', 'end': '10.0.0.250'}]
++    description: Ip allocation pool range for the external network.
++    type: json
++
++resources:
++  ExternalNetwork:
++    type: OS::Neutron::Net
++    properties:
++      admin_state_up: {get_param: ExternalNetAdminStateUp}
++      name: {get_param: ExternalNetName}
++      shared: {get_param: ExternalNetShared}
++      value_specs: {get_param: ExternalNetValueSpecs}
++
++  ExternalSubnet:
++    type: OS::Neutron::Subnet
++    properties:
++      cidr: {get_param: ExternalNetCidr}
++      enable_dhcp: {get_param: ExternalNetEnableDHCP}
++      name: {get_param: ExternalSubnetName}
++      network: {get_resource: ExternalNetwork}
++      allocation_pools: {get_param: ExternalAllocationPools}
++
++outputs:
++  OS::stack_id:
++    description: Neutron external network
++    value: {get_resource: ExternalNetwork}
+diff --git a/network/internal_api.yaml b/network/internal_api.yaml
+new file mode 100644
+index 0000000..6f8aa3a
+--- /dev/null
++++ b/network/internal_api.yaml
+@@ -0,0 +1,62 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Internal API network. Used for most APIs, Database, RPC.
++
++parameters:
++  # the defaults here work for static IP assignment (IPAM) only
++  InternalApiNetCidr:
++    default: '172.16.2.0/24'
++    description: Cidr for the internal API network.
++    type: string
++  InternalApiNetValueSpecs:
++    default: {'provider:physical_network': 'internal_api', 'provider:network_type': 'flat'}
++    description: Value specs for the internal API network.
++    type: json
++  InternalApiNetAdminStateUp:
++    default: false
++    description: This admin state of the network.
++    type: boolean
++  InternalApiNetEnableDHCP:
++    default: false
++    description: Whether to enable DHCP on the associated subnet.
++    type: boolean
++  InternalApiNetShared:
++    default: false
++    description: Whether this network is shared across all tenants.
++    type: boolean
++  InternalApiNetName:
++    default: internal_api
++    description: The name of the internal API network.
++    type: string
++  InternalApiSubnetName:
++    default: internal_api_subnet
++    description: The name of the internal API subnet in Neutron.
++    type: string
++  InternalApiAllocationPools:
++    default: [{'start': '172.16.2.4', 'end': '172.16.2.250'}]
++    description: Ip allocation pool range for the internal API network.
++    type: json
++
++resources:
++  InternalApiNetwork:
++    type: OS::Neutron::Net
++    properties:
++      admin_state_up: {get_param: InternalApiNetAdminStateUp}
++      name: {get_param: InternalApiNetName}
++      shared: {get_param: InternalApiNetShared}
++      value_specs: {get_param: InternalApiNetValueSpecs}
++
++  InternalApiSubnet:
++    type: OS::Neutron::Subnet
++    properties:
++      cidr: {get_param: InternalApiNetCidr}
++      enable_dhcp: {get_param: InternalApiNetEnableDHCP}
++      name: {get_param: InternalApiSubnetName}
++      network: {get_resource: InternalApiNetwork}
++      allocation_pools: {get_param: InternalApiAllocationPools}
++
++outputs:
++  OS::stack_id:
++    description: Neutron internal network
++    value: {get_resource: InternalApiNetwork}
+diff --git a/network/management.yaml b/network/management.yaml
+new file mode 100644
+index 0000000..1800b57
+--- /dev/null
++++ b/network/management.yaml
+@@ -0,0 +1,64 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Management network. System administration, SSH, DNS, NTP, etc. This network
++  would usually be the default gateway for the non-controller nodes.
++
++parameters:
++  # the defaults here work for static IP assignment (IPAM) only
++  ManagementNetCidr:
++    default: '10.0.1.0/24'
++    description: Cidr for the management network.
++    type: string
++  ManagementNetValueSpecs:
++    default: {'provider:physical_network': 'management', 'provider:network_type': 'flat'}
++    description: Value specs for the management network.
++    type: string
++  ManagementNetAdminStateUp:
++    default: false
++    description: The admin state of the network.
++    type: boolean
++  ManagementNetEnableDHCP:
++    default: false
++    description: Whether to enable DHCP on the associated subnet.
++    type: boolean
++  ManagementNetShared:
++    default: false
++    description: Whether this network is shared across all tenants.
++    type: boolean
++  ManagementNetName:
++    default: management
++    description: The name of the management network.
++    type: string
++  ManagementSubnetName:
++    default: management_subnet
++    description: The name of the management subnet in Neutron.
++    type: string
++  ManagementAllocationPools:
++    default: [{'start': '10.0.1.4', 'end': '10.0.1.250'}]
++    description: Ip allocation pool range for the management network.
++    type: json
++
++resources:
++  ManagementNetwork:
++    type: OS::Neutron::Net
++    properties:
++      admin_state_up: {get_param: ManagementNetAdminStateUp}
++      name: {get_param: ManagementNetName}
++      shared: {get_param: ManagementNetShared}
++      value_specs: {get_param: ManagementNetValueSpecs}
++
++  ManagementSubnet:
++    type: OS::Neutron::Subnet
++    properties:
++      cidr: {get_param: ManagementNetCidr}
++      enable_dhcp: {get_param: ManagementNetEnableDHCP}
++      name: {get_param: ManagementSubnetName}
++      network: {get_resource: ManagementNetwork}
++      allocation_pools: {get_param: ManagementAllocationPools}
++
++outputs:
++  OS::stack_id:
++    description: Neutron management network
++    value: {get_resource: ManagementNetwork}
++
+diff --git a/network/networks.yaml b/network/networks.yaml
+new file mode 100644
+index 0000000..ab50ae1
+--- /dev/null
++++ b/network/networks.yaml
+@@ -0,0 +1,23 @@
++heat_template_version: 2015-04-30
++
++description: Create networks to split out Overcloud traffic
++
++resources:
++
++  ExternalNetwork:
++    type: OS::TripleO::Network::External
++
++  InternalNetwork:
++    type: OS::TripleO::Network::InternalApi
++
++  StorageMgmtNetwork:
++    type: OS::TripleO::Network::StorageMgmt
++
++  StorageNetwork:
++    type: OS::TripleO::Network::Storage
++
++  TenantNetwork:
++    type: OS::TripleO::Network::Tenant
++
++  ManagementNetwork:
++    type: OS::TripleO::Network::Management
+diff --git a/network/noop.yaml b/network/noop.yaml
+new file mode 100644
+index 0000000..0963d2c
+--- /dev/null
++++ b/network/noop.yaml
+@@ -0,0 +1,3 @@
++heat_template_version: 2015-04-30
++
++description: A stack which creates no network(s).
+diff --git a/network/ports/ctlplane_vip.yaml b/network/ports/ctlplane_vip.yaml
+new file mode 100644
+index 0000000..5ac7d34
+--- /dev/null
++++ b/network/ports/ctlplane_vip.yaml
+@@ -0,0 +1,58 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Creates a port for a VIP on the undercloud ctlplane network.
++  The IP address will be chosen automatically if FixedIPs is empty.
++
++parameters:
++  ServiceName: # Here for compatibility with from_service.yaml
++    description: Name of the service to lookup
++    default: ''
++    type: string
++  NetworkName:
++    description: # Here for compatibility with isolated networks
++    default: ctlplane
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  ControlPlaneNetwork:
++    description: The name of the undercloud Neutron control plane
++    default: ctlplane
++    type: string
++  FixedIPs:
++    description: >
++        Control the IP allocation for the VIP port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    default: []
++    type: json
++
++resources:
++  VipPort:
++    type: OS::Neutron::Port
++    properties:
++      network: {get_param: ControlPlaneNetwork}
++      name: {get_param: PortName}
++      fixed_ips: {get_param: FixedIPs}
++      replacement_policy: AUTO
++
++outputs:
++  ip_address:
++    description: Virtual IP network IP
++    value: {get_attr: [VipPort, fixed_ips, 0, ip_address]}
++  ip_address_uri:
++    description: Virtual IP network IP (for compatibility with vip_v6.yaml)
++    value: {get_attr: [VipPort, fixed_ips, 0, ip_address]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the ctlplane network.
++    value:
++          list_join:
++            - ''
++            - - {get_attr: [VipPort, fixed_ips, 0, ip_address]}
++              - '/'
++              - {str_split: ['/', {get_attr: [VipPort, subnets, 0, cidr]}, 1]}
+diff --git a/network/ports/external.yaml b/network/ports/external.yaml
+new file mode 100644
+index 0000000..c4f815f
+--- /dev/null
++++ b/network/ports/external.yaml
+@@ -0,0 +1,61 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Creates a port on the external network. The IP address will be chosen
++  automatically if FixedIPs is empty.
++
++parameters:
++  ExternalNetName:
++    description: Name of the external neutron network
++    default: external
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  ControlPlaneNetwork: # Here for compatibility with ctlplane_vip.yaml
++    description: The name of the undercloud Neutron control plane
++    default: ctlplane
++    type: string
++  FixedIPs:
++    description: >
++        Control the IP allocation for the VIP port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    default: []
++    type: json
++  IPPool: # Here for compatibility with from_pool.yaml
++    default: {}
++    type: json
++  NodeIndex: # Here for compatibility with from_pool.yaml
++    default: 0
++    type: number
++
++resources:
++
++  ExternalPort:
++    type: OS::Neutron::Port
++    properties:
++      network: {get_param: ExternalNetName}
++      name: {get_param: PortName}
++      fixed_ips: {get_param: FixedIPs}
++      replacement_policy: AUTO
++
++outputs:
++  ip_address:
++    description: external network IP
++    value: {get_attr: [ExternalPort, fixed_ips, 0, ip_address]}
++  ip_address_uri:
++    description: external network IP (for compatibility with external_v6.yaml)
++    value: {get_attr: [ExternalPort, fixed_ips, 0, ip_address]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the external network IP
++    value:
++          list_join:
++            - ''
++            - - {get_attr: [ExternalPort, fixed_ips, 0, ip_address]}
++              - '/'
++              - {str_split: ['/', {get_attr: [ExternalPort, subnets, 0, cidr]}, 1]}
+diff --git a/network/ports/external_from_pool.yaml b/network/ports/external_from_pool.yaml
+new file mode 100644
+index 0000000..867176e
+--- /dev/null
++++ b/network/ports/external_from_pool.yaml
+@@ -0,0 +1,46 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Returns an IP from a network mapped list of IPs
++
++parameters:
++  ExternalNetName:
++    description: Name of the external network
++    default: external
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  IPPool:
++    default: {}
++    description: A network mapped list of IPs
++    type: json
++  NodeIndex:
++    default: 0
++    description: Index of the IP to get from Pool
++    type: number
++  ExternalNetCidr:
++    default: '10.0.0.0/24'
++    description: Cidr for the external network.
++    type: string
++
++outputs:
++  ip_address:
++    description: external network IP
++    value: {get_param: [IPPool, {get_param: ExternalNetName}, {get_param: NodeIndex}]}
++  ip_address_uri:
++    description: external network IP (for compatibility with IPv6)
++    value: {get_param: [IPPool, {get_param: ExternalNetName}, {get_param: NodeIndex}]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the external network IP
++    value:
++      list_join:
++      - ''
++      - - {get_param: [IPPool, {get_param: ExternalNetName}, {get_param: NodeIndex}]}
++        - '/'
++        - {str_split: ['/', {get_param: ExternalNetCidr}, 1]}
+diff --git a/network/ports/from_service.yaml b/network/ports/from_service.yaml
+new file mode 100644
+index 0000000..3d61910
+--- /dev/null
++++ b/network/ports/from_service.yaml
+@@ -0,0 +1,37 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Returns an IP from a service mapped list of IPs
++
++parameters:
++  ServiceName:
++    description: Name of the service to lookup
++    default: ''
++    type: string
++  NetworkName: # Here for compatibility with ctlplane_vip.yaml
++    description: Name of the network where the VIP will be created
++    default: ctlplane
++    type: string
++  PortName: # Here for compatibility with ctlplane_vip.yaml
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with ctlplane_vip.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  ControlPlaneNetwork: # Here for compatibility with ctlplane_vip.yaml
++    description: The name of the undercloud Neutron control plane
++    default: ctlplane
++    type: string
++  ServiceVips:
++    default: {}
++    type: json
++
++outputs:
++  ip_address:
++    description: network IP
++    value: {get_param: [ServiceVips, {get_param: ServiceName}]}
++  ip_address_uri:
++    description: network IP (for compatibility with IPv6)
++    value: {get_param: [ServiceVips, {get_param: ServiceName}]}
+diff --git a/network/ports/internal_api.yaml b/network/ports/internal_api.yaml
+new file mode 100644
+index 0000000..1d521a8
+--- /dev/null
++++ b/network/ports/internal_api.yaml
+@@ -0,0 +1,57 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Creates a port on the internal_api network.
++
++parameters:
++  InternalApiNetName:
++    description: Name of the internal API neutron network
++    default: internal_api
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  FixedIPs:
++    description: >
++        Control the IP allocation for the VIP port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    default: []
++    type: json
++  IPPool: # Here for compatibility with from_pool.yaml
++    default: {}
++    type: json
++  NodeIndex: # Here for compatibility with from_pool.yaml
++    default: 0
++    type: number
++
++resources:
++
++  InternalApiPort:
++    type: OS::Neutron::Port
++    properties:
++      network: {get_param: InternalApiNetName}
++      name: {get_param: PortName}
++      fixed_ips: {get_param: FixedIPs}
++      replacement_policy: AUTO
++
++outputs:
++  ip_address:
++    description: internal API network IP
++    value: {get_attr: [InternalApiPort, fixed_ips, 0, ip_address]}
++  ip_address_uri:
++    description: |
++        internal API network IP (for compatibility with internal_api_v6.yaml)
++    value: {get_attr: [InternalApiPort, fixed_ips, 0, ip_address]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the internal API network IP
++    value:
++          list_join:
++            - ''
++            - - {get_attr: [InternalApiPort, fixed_ips, 0, ip_address]}
++              - '/'
++              - {str_split: ['/', {get_attr: [InternalApiPort, subnets, 0, cidr]}, 1]}
+diff --git a/network/ports/internal_api_from_pool.yaml b/network/ports/internal_api_from_pool.yaml
+new file mode 100644
+index 0000000..d7b67e2
+--- /dev/null
++++ b/network/ports/internal_api_from_pool.yaml
+@@ -0,0 +1,46 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Returns an IP from a network mapped list of IPs
++
++parameters:
++  InternalApiNetName:
++    description: Name of the internal API network
++    default: internal_api
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  IPPool:
++    default: {}
++    description: A network mapped list of IPs
++    type: json
++  NodeIndex:
++    default: 0
++    description: Index of the IP to get from Pool
++    type: number
++  InternalApiNetCidr:
++    default: '172.16.2.0/24'
++    description: Cidr for the internal API network.
++    type: string
++
++outputs:
++  ip_address:
++    description: internal API network IP
++    value: {get_param: [IPPool, {get_param: InternalApiNetName}, {get_param: NodeIndex}]}
++  ip_address_uri:
++    description: internal API network IP (for compatibility with internal_api_v6.yaml)
++    value: {get_param: [IPPool, {get_param: InternalApiNetName}, {get_param: NodeIndex}]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the internal API network IP
++    value:
++      list_join:
++      - ''
++      - - {get_param: [IPPool, {get_param: InternalApiNetName}, {get_param: NodeIndex}]}
++        - '/'
++        - {str_split: ['/', {get_param: InternalApiNetCidr}, 1]}
+diff --git a/network/ports/management.yaml b/network/ports/management.yaml
+new file mode 100644
+index 0000000..967b66e
+--- /dev/null
++++ b/network/ports/management.yaml
+@@ -0,0 +1,49 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Creates a port on the management network. The IP address will be chosen
++  automatically if FixedIPs is empty.
++
++parameters:
++  ManagementNetName:
++    description: Name of the management neutron network
++    default: management
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    type: string
++  IPPool: # Here for compatibility with from_pool.yaml
++    default: {}
++    type: json
++  NodeIndex: # Here for compatibility with from_pool.yaml
++    default: 0
++    type: number
++
++resources:
++
++  ManagementPort:
++    type: OS::Neutron::Port
++    properties:
++      network: {get_param: ManagementNetName}
++      name: {get_param: PortName}
++      replacement_policy: AUTO
++
++outputs:
++  ip_address:
++    description: management network IP
++    value: {get_attr: [ManagementPort, fixed_ips, 0, ip_address]}
++  ip_address_uri:
++    description: management network IP (for compatibility with management_v6.yaml)
++    value: {get_attr: [ManagementPort, fixed_ips, 0, ip_address]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the management network IP
++    value:
++          list_join:
++            - ''
++            - - {get_attr: [ManagementPort, fixed_ips, 0, ip_address]}
++              - '/'
++              - {str_split: ['/', {get_attr: [ManagementPort, subnets, 0, cidr]}, 1]}
+diff --git a/network/ports/management_from_pool.yaml b/network/ports/management_from_pool.yaml
+new file mode 100644
+index 0000000..fc87e39
+--- /dev/null
++++ b/network/ports/management_from_pool.yaml
+@@ -0,0 +1,46 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Returns an IP from a network mapped list of IPs
++
++parameters:
++  ManagementNetName:
++    description: Name of the management network
++    default: management
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatability with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  IPPool:
++    default: {}
++    description: A network mapped list of IPs
++    type: json
++  NodeIndex:
++    default: 0
++    description: Index of the IP to get from Pool
++    type: number
++  ManagementNetCidr:
++    default: '172.16.4.0/24'
++    description: Cidr for the management network.
++    type: string
++
++outputs:
++  ip_address:
++    description: management network IP
++    value: {get_param: [IPPool, {get_param: ManagementNetName}, {get_param: NodeIndex}]}
++  ip_address_uri:
++    description: management network IP (for compatibility with management_v6.yaml)
++    value: {get_param: [IPPool, {get_param: ManagementNetName}, {get_param: NodeIndex}]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the management network IP
++    value:
++      list_join:
++      - ''
++      - - {get_param: [IPPool, {get_param: ManagementNetName}, {get_param: NodeIndex}]}
++        - '/'
++        - {str_split: ['/', {get_param: ManagementNetCidr}, 1]}
+diff --git a/network/ports/net_ip_list_map.yaml b/network/ports/net_ip_list_map.yaml
+new file mode 100644
+index 0000000..32272bd
+--- /dev/null
++++ b/network/ports/net_ip_list_map.yaml
+@@ -0,0 +1,38 @@
++heat_template_version: 2015-04-30
++
++parameters:
++  ControlPlaneIpList:
++    default: []
++    type: comma_delimited_list
++  ExternalIpList:
++    default: []
++    type: comma_delimited_list
++  InternalApiIpList:
++    default: []
++    type: comma_delimited_list
++  StorageIpList:
++    default: []
++    type: comma_delimited_list
++  StorageMgmtIpList:
++    default: []
++    type: comma_delimited_list
++  TenantIpList:
++    default: []
++    type: comma_delimited_list
++  ManagementIpList:
++    default: []
++    type: comma_delimited_list
++
++outputs:
++  net_ip_map:
++    description: >
++      A Hash containing a mapping of network names to assigned lists
++      of IP addresses.
++    value:
++      ctlplane: {get_param: ControlPlaneIpList}
++      external: {get_param: ExternalIpList}
++      internal_api: {get_param: InternalApiIpList}
++      storage: {get_param: StorageIpList}
++      storage_mgmt: {get_param: StorageMgmtIpList}
++      tenant: {get_param: TenantIpList}
++      management: {get_param: ManagementIpList}
+diff --git a/network/ports/net_ip_map.yaml b/network/ports/net_ip_map.yaml
+new file mode 100644
+index 0000000..6bb4557
+--- /dev/null
++++ b/network/ports/net_ip_map.yaml
+@@ -0,0 +1,74 @@
++heat_template_version: 2015-04-30
++
++parameters:
++  ControlPlaneIp:
++    default: ''
++    type: string
++  ExternalIp:
++    default: ''
++    type: string
++  ExternalIpUri:
++    default: ''
++    type: string
++    description: IP address with brackets in case of IPv6
++  InternalApiIp:
++    default: ''
++    type: string
++  InternalApiIpUri:
++    default: ''
++    type: string
++    description: IP address with brackets in case of IPv6
++  StorageIp:
++    default: ''
++    type: string
++  StorageIpUri:
++    default: ''
++    type: string
++    description: IP address with brackets in case of IPv6
++  StorageMgmtIp:
++    default: ''
++    type: string
++  StorageMgmtIpUri:
++    default: ''
++    type: string
++    description: IP address with brackets in case of IPv6
++  TenantIp:
++    default: ''
++    type: string
++  TenantIpUri:
++    default: ''
++    type: string
++    description: IP address with brackets in case of IPv6
++  ManagementIp:
++    default: ''
++    type: string
++  ManagementIpUri:
++    default: ''
++    type: string
++    description: IP address with brackets in case of IPv6
++
++outputs:
++  net_ip_map:
++    description: >
++      A Hash containing a mapping of network names to assigned IPs
++      for a specific machine.
++    value:
++      ctlplane: {get_param: ControlPlaneIp}
++      external: {get_param: ExternalIp}
++      internal_api: {get_param: InternalApiIp}
++      storage: {get_param: StorageIp}
++      storage_mgmt: {get_param: StorageMgmtIp}
++      tenant: {get_param: TenantIp}
++      management: {get_param: ManagementIp}
++  net_ip_uri_map:
++    description: >
++      A Hash containing a mapping of netowrk names to assigned IPs for a
++      specific machine with brackets around IPv6 addresses for use in URLs.
++    value:
++      ctlplane: {get_param: ControlPlaneIp}
++      external: {get_param: ExternalIpUri}
++      internal_api: {get_param: InternalApiIpUri}
++      storage: {get_param: StorageIpUri}
++      storage_mgmt: {get_param: StorageMgmtIpUri}
++      tenant: {get_param: TenantIpUri}
++      management: {get_param: ManagementIpUri}
+diff --git a/network/ports/net_ip_subnet_map.yaml b/network/ports/net_ip_subnet_map.yaml
+new file mode 100644
+index 0000000..2f933ea
+--- /dev/null
++++ b/network/ports/net_ip_subnet_map.yaml
+@@ -0,0 +1,47 @@
++heat_template_version: 2015-04-30
++
++parameters:
++  ControlPlaneIp:
++    default: ''
++    type: string
++  ExternalIpSubnet:
++    default: ''
++    type: string
++  InternalApiIpSubnet:
++    default: ''
++    type: string
++  StorageIpSubnet:
++    default: ''
++    type: string
++  StorageMgmtIpSubnet:
++    default: ''
++    type: string
++  TenantIpSubnet:
++    default: ''
++    type: string
++  ManagementIpSubnet:
++    default: ''
++    type: string
++  ControlPlaneSubnetCidr: # Override this via parameter_defaults
++    default: '24'
++    description: The subnet CIDR of the control plane network.
++    type: string
++
++outputs:
++  net_ip_subnet_map:
++    description: >
++      A Hash containing a mapping of network names to assigned
++      IP/subnet mappings.
++    value:
++      ctlplane:
++        list_join:
++          - ''
++          - - {get_param: ControlPlaneIp}
++            - '/'
++            - {get_param: ControlPlaneSubnetCidr}
++      external: {get_param: ExternalIpSubnet}
++      internal_api: {get_param: InternalApiIpSubnet}
++      storage: {get_param: StorageIpSubnet}
++      storage_mgmt: {get_param: StorageMgmtIpSubnet}
++      tenant: {get_param: TenantIpSubnet}
++      management: {get_param: ManagementIpSubnet}
+diff --git a/network/ports/net_vip_map_external.yaml b/network/ports/net_vip_map_external.yaml
+new file mode 100644
+index 0000000..a40a0bf
+--- /dev/null
++++ b/network/ports/net_vip_map_external.yaml
+@@ -0,0 +1,75 @@
++heat_template_version: 2015-04-30
++
++parameters:
++  # Set these via parameter defaults to configure external VIPs
++  ControlPlaneIP:
++    default: ''
++    type: string
++  ExternalNetworkVip:
++    default: ''
++    type: string
++  InternalApiNetworkVip:
++    default: ''
++    type: string
++  StorageNetworkVip:
++    default: ''
++    type: string
++  StorageMgmtNetworkVip:
++    default: ''
++    type: string
++  # The following are unused in this template
++  ControlPlaneIp:
++    default: ''
++    type: string
++  ExternalIp:
++    default: ''
++    type: string
++  ExternalIpUri:
++    default: ''
++    type: string
++  InternalApiIp:
++    default: ''
++    type: string
++  InternalApiIpUri:
++    default: ''
++    type: string
++  StorageIp:
++    default: ''
++    type: string
++  StorageIpUri:
++    default: ''
++    type: string
++  StorageMgmtIp:
++    default: ''
++    type: string
++  StorageMgmtIpUri:
++    default: ''
++    type: string
++  TenantIp:
++    default: ''
++    type: string
++  TenantIpUri:
++    default: ''
++    type: string
++
++outputs:
++  net_ip_map:
++    description: >
++      A Hash containing a mapping of network names to assigned IPs
++      for a specific machine.
++    value:
++      ctlplane: {get_param: ControlPlaneIP}
++      external: {get_param: ExternalNetworkVip}
++      internal_api: {get_param: InternalApiNetworkVip}
++      storage: {get_param: StorageNetworkVip}
++      storage_mgmt: {get_param: StorageMgmtNetworkVip}
++  net_ip_uri_map:
++    description: >
++      A Hash containing a mapping of netowrk names to assigned IPs for a
++      specific machine with brackets around IPv6 addresses for use in URLs.
++    value:
++      ctlplane: {get_param: ControlPlaneIP}
++      external: {get_param: ExternalNetworkVip}
++      internal_api: {get_param: InternalApiNetworkVip}
++      storage: {get_param: StorageNetworkVip}
++      storage_mgmt: {get_param: StorageMgmtNetworkVip}
+diff --git a/network/ports/noop.yaml b/network/ports/noop.yaml
+new file mode 100644
+index 0000000..96c461e
+--- /dev/null
++++ b/network/ports/noop.yaml
+@@ -0,0 +1,57 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Returns the control plane port (provisioning network) as the ip_address.
++
++parameters:
++  ServiceName: # Here for compatibility with from_service.yaml
++    description: Name of the service to lookup
++    default: ''
++    type: string
++  ControlPlaneIP:
++    description: IP address on the control plane
++    type: string
++  ControlPlaneNetwork:
++    description: Name of the control plane network
++    default: ctlplane
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  NetworkName:
++    description: # Here for compatibility with vip.yaml
++    default: ''
++    type: string
++  FixedIPs:
++    description: # Here for compatibility with vip.yaml
++    default: []
++    type: json
++  ControlPlaneSubnetCidr: # Override this via parameter_defaults
++    default: '24'
++    description: The subnet CIDR of the control plane network.
++    type: string
++  IPPool: # Here for compatibility with from_pool.yaml
++    default: {}
++    description: A network mapped list of IPs
++    type: json
++  NodeIndex: # Here for compatibility with from_pool.yaml
++    default: 0
++    description: Index of the IP to get from Pool
++    type: number
++
++outputs:
++  ip_address:
++    description: pass thru network IP
++    value: {get_param: ControlPlaneIP}
++  ip_address_uri:
++    description: pass thru network IP (for compatibility with vip_v6.yaml)
++    value: {get_param: ControlPlaneIP}
++  ip_subnet:
++    description: IP/Subnet CIDR for the pass thru network IP
++    value:
++          list_join:
++            - ''
++            - - {get_param: ControlPlaneIP}
++              - '/'
++              - {get_param: ControlPlaneSubnetCidr}
+diff --git a/network/ports/storage.yaml b/network/ports/storage.yaml
+new file mode 100644
+index 0000000..1ed5cca
+--- /dev/null
++++ b/network/ports/storage.yaml
+@@ -0,0 +1,56 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Creates a port on the storage network.
++
++parameters:
++  StorageNetName:
++    description: Name of the storage neutron network
++    default: storage
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  FixedIPs:
++    description: >
++        Control the IP allocation for the VIP port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    default: []
++    type: json
++  IPPool: # Here for compatibility with from_pool.yaml
++    default: {}
++    type: json
++  NodeIndex: # Here for compatibility with from_pool.yaml
++    default: 0
++    type: number
++
++resources:
++
++  StoragePort:
++    type: OS::Neutron::Port
++    properties:
++      network: {get_param: StorageNetName}
++      name: {get_param: PortName}
++      fixed_ips: {get_param: FixedIPs}
++      replacement_policy: AUTO
++
++outputs:
++  ip_address:
++    description: storage network IP
++    value: {get_attr: [StoragePort, fixed_ips, 0, ip_address]}
++  ip_address_uri:
++    description: storage network IP (for compatibility with storage_v6.yaml)
++    value: {get_attr: [StoragePort, fixed_ips, 0, ip_address]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the storage network IP
++    value:
++          list_join:
++            - ''
++            - - {get_attr: [StoragePort, fixed_ips, 0, ip_address]}
++              - '/'
++              - {str_split: ['/', {get_attr: [StoragePort, subnets, 0, cidr]}, 1]}
+diff --git a/network/ports/storage_from_pool.yaml b/network/ports/storage_from_pool.yaml
+new file mode 100644
+index 0000000..0a3d394
+--- /dev/null
++++ b/network/ports/storage_from_pool.yaml
+@@ -0,0 +1,46 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Returns an IP from a network mapped list of IPs
++
++parameters:
++  StorageNetName:
++    description: Name of the storage network
++    default: storage
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  IPPool:
++    default: {}
++    description: A network mapped list of IPs
++    type: json
++  NodeIndex:
++    default: 0
++    description: Index of the IP to get from Pool
++    type: number
++  StorageNetCidr:
++    default: '172.16.1.0/24'
++    description: Cidr for the storage network.
++    type: string
++
++outputs:
++  ip_address:
++    description: storage network IP
++    value: {get_param: [IPPool, {get_param: StorageNetName}, {get_param: NodeIndex}]}
++  ip_address_uri:
++    description: storage network IP (for compatibility with storage_v6.yaml)
++    value: {get_param: [IPPool, {get_param: StorageNetName}, {get_param: NodeIndex}]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the storage network IP
++    value:
++      list_join:
++      - ''
++      - - {get_param: [IPPool, {get_param: StorageNetName}, {get_param: NodeIndex}]}
++        - '/'
++        - {str_split: ['/', {get_param: StorageNetCidr}, 1]}
+diff --git a/network/ports/storage_mgmt.yaml b/network/ports/storage_mgmt.yaml
+new file mode 100644
+index 0000000..548d226
+--- /dev/null
++++ b/network/ports/storage_mgmt.yaml
+@@ -0,0 +1,57 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Creates a port on the storage_mgmt API network.
++
++parameters:
++  StorageMgmtNetName:
++    description: Name of the storage_mgmt API neutron network
++    default: storage_mgmt
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  FixedIPs:
++    description: >
++        Control the IP allocation for the VIP port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    default: []
++    type: json
++  IPPool: # Here for compatibility with from_pool.yaml
++    default: {}
++    type: json
++  NodeIndex: # Here for compatibility with from_pool.yaml
++    default: 0
++    type: number
++
++resources:
++
++  StorageMgmtPort:
++    type: OS::Neutron::Port
++    properties:
++      network: {get_param: StorageMgmtNetName}
++      name: {get_param: PortName}
++      fixed_ips: {get_param: FixedIPs}
++      replacement_policy: AUTO
++
++outputs:
++  ip_address:
++    description: storage_mgmt network IP
++    value: {get_attr: [StorageMgmtPort, fixed_ips, 0, ip_address]}
++  ip_address_uri:
++    description: |
++        storage_mgmt network IP (for compatibility with storage_mgmt_v6.yaml)
++    value: {get_attr: [StorageMgmtPort, fixed_ips, 0, ip_address]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the storage_mgmt network IP
++    value:
++          list_join:
++            - ''
++            - - {get_attr: [StorageMgmtPort, fixed_ips, 0, ip_address]}
++              - '/'
++              - {str_split: ['/', {get_attr: [StorageMgmtPort, subnets, 0, cidr]}, 1]}
+diff --git a/network/ports/storage_mgmt_from_pool.yaml b/network/ports/storage_mgmt_from_pool.yaml
+new file mode 100644
+index 0000000..c3f0f4e
+--- /dev/null
++++ b/network/ports/storage_mgmt_from_pool.yaml
+@@ -0,0 +1,46 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Returns an IP from a network mapped list of IPs
++
++parameters:
++  StorageMgmtNetName:
++    description: Name of the storage MGMT network
++    default: storage_mgmt
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  IPPool:
++    default: {}
++    description: A network mapped list of IPs
++    type: json
++  NodeIndex:
++    default: 0
++    description: Index of the IP to get from Pool
++    type: number
++  StorageMgmtNetCidr:
++    default: '172.16.3.0/24'
++    description: Cidr for the storage MGMT network.
++    type: string
++
++outputs:
++  ip_address:
++    description: storage MGMT network IP
++    value: {get_param: [IPPool, {get_param: StorageMgmtNetName}, {get_param: NodeIndex}]}
++  ip_address_uri:
++    description: storage MGMT network IP (for compatibility with storage_mgmt_v6.yaml)
++    value: {get_param: [IPPool, {get_param: StorageMgmtNetName}, {get_param: NodeIndex}]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the storage MGMT network IP
++    value:
++      list_join:
++      - ''
++      - - {get_param: [IPPool, {get_param: StorageMgmtNetName}, {get_param: NodeIndex}]}
++        - '/'
++        - {str_split: ['/', {get_param: StorageMgmtNetCidr}, 1]}
+diff --git a/network/ports/tenant.yaml b/network/ports/tenant.yaml
+new file mode 100644
+index 0000000..d8f78c4
+--- /dev/null
++++ b/network/ports/tenant.yaml
+@@ -0,0 +1,56 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Creates a port on the tenant network.
++
++parameters:
++  TenantNetName:
++    description: Name of the tenant neutron network
++    default: tenant
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  FixedIPs:
++    description: >
++        Control the IP allocation for the VIP port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    default: []
++    type: json
++  IPPool: # Here for compatibility with from_pool.yaml
++    default: {}
++    type: json
++  NodeIndex: # Here for compatibility with from_pool.yaml
++    default: 0
++    type: number
++
++resources:
++
++  TenantPort:
++    type: OS::Neutron::Port
++    properties:
++      network: {get_param: TenantNetName}
++      name: {get_param: PortName}
++      fixed_ips: {get_param: FixedIPs}
++      replacement_policy: AUTO
++
++outputs:
++  ip_address:
++    description: tenant network IP
++    value: {get_attr: [TenantPort, fixed_ips, 0, ip_address]}
++  ip_address_uri:
++    description: tenant network IP (for compatibility with tenant_v6.yaml)
++    value: {get_attr: [TenantPort, fixed_ips, 0, ip_address]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the tenant network IP
++    value:
++          list_join:
++            - ''
++            - - {get_attr: [TenantPort, fixed_ips, 0, ip_address]}
++              - '/'
++              - {str_split: ['/', {get_attr: [TenantPort, subnets, 0, cidr]}, 1]}
+diff --git a/network/ports/tenant_from_pool.yaml b/network/ports/tenant_from_pool.yaml
+new file mode 100644
+index 0000000..d5fd708
+--- /dev/null
++++ b/network/ports/tenant_from_pool.yaml
+@@ -0,0 +1,46 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Returns an IP from a network mapped list of IPs
++
++parameters:
++  TenantNetName:
++    description: Name of the tenant network
++    default: tenant
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  IPPool:
++    default: {}
++    description: A network mapped list of IPs
++    type: json
++  NodeIndex:
++    default: 0
++    description: Index of the IP to get from Pool
++    type: number
++  TenantNetCidr:
++    default: '172.16.0.0/24'
++    description: Cidr for the tenant network.
++    type: string
++
++outputs:
++  ip_address:
++    description: tenant network IP
++    value: {get_param: [IPPool, {get_param: TenantNetName}, {get_param: NodeIndex}]}
++  ip_address_uri:
++    description: tenant network IP (for compatibility with tenant_v6.yaml)
++    value: {get_param: [IPPool, {get_param: TenantNetName}, {get_param: NodeIndex}]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the tenant network IP
++    value:
++      list_join:
++      - ''
++      - - {get_param: [IPPool, {get_param: TenantNetName}, {get_param: NodeIndex}]}
++        - '/'
++        - {str_split: ['/', {get_param: TenantNetCidr}, 1]}
+diff --git a/network/ports/vip.yaml b/network/ports/vip.yaml
+new file mode 100644
+index 0000000..3832290
+--- /dev/null
++++ b/network/ports/vip.yaml
+@@ -0,0 +1,58 @@
++heat_template_version: 2015-10-15
++
++description: >
++  Creates a port for a VIP on the isolated network NetworkName.
++  The IP address will be chosen automatically if FixedIPs is empty.
++
++parameters:
++  ServiceName: # Here for compatibility with from_service.yaml
++    description: Name of the service to lookup
++    default: ''
++    type: string
++  NetworkName:
++    description: Name of the network where the VIP will be created
++    default: internal_api
++    type: string
++  PortName:
++    description: Name of the port
++    default: ''
++    type: string
++  ControlPlaneIP: # Here for compatibility with noop.yaml
++    description: IP address on the control plane
++    default: ''
++    type: string
++  ControlPlaneNetwork:
++    description: The name of the undercloud Neutron control plane
++    default: ctlplane
++    type: string
++  FixedIPs:
++    description: >
++        Control the IP allocation for the VIP port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    default: []
++    type: json
++
++resources:
++  VipPort:
++    type: OS::Neutron::Port
++    properties:
++      network: {get_param: NetworkName}
++      name: {get_param: PortName}
++      fixed_ips: {get_param: FixedIPs}
++      replacement_policy: AUTO
++
++outputs:
++  ip_address:
++    description: Virtual IP network IP
++    value: {get_attr: [VipPort, fixed_ips, 0, ip_address]}
++  ip_address_uri:
++    description: Virtual IP network IP (for compatibility with vip.yaml)
++    value: {get_attr: [VipPort, fixed_ips, 0, ip_address]}
++  ip_subnet:
++    description: IP/Subnet CIDR for the network associated with this IP
++    value:
++          list_join:
++            - ''
++            - - {get_attr: [VipPort, fixed_ips, 0, ip_address]}
++              - '/'
++              - {str_split: ['/', {get_attr: [VipPort, subnets, 0, cidr]}, 1]}
+diff --git a/network/storage.yaml b/network/storage.yaml
+new file mode 100644
+index 0000000..dc9f35e
+--- /dev/null
++++ b/network/storage.yaml
+@@ -0,0 +1,62 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Storage network.
++
++parameters:
++  # the defaults here work for static IP assignment (IPAM) only
++  StorageNetCidr:
++    default: '172.16.1.0/24'
++    description: Cidr for the storage network.
++    type: string
++  StorageNetValueSpecs:
++    default: {'provider:physical_network': 'storage', 'provider:network_type': 'flat'}
++    description: Value specs for the storage network.
++    type: json
++  StorageNetAdminStateUp:
++    default: false
++    description: This admin state of the network.
++    type: boolean
++  StorageNetEnableDHCP:
++    default: false
++    description: Whether to enable DHCP on the associated subnet.
++    type: boolean
++  StorageNetShared:
++    default: false
++    description: Whether this network is shared across all tenants.
++    type: boolean
++  StorageNetName:
++    default: storage
++    description: The name of the storage network.
++    type: string
++  StorageSubnetName:
++    default: storage_subnet
++    description: The name of the storage subnet in Neutron.
++    type: string
++  StorageAllocationPools:
++    default: [{'start': '172.16.1.4', 'end': '172.16.1.250'}]
++    description: Ip allocation pool range for the storage network.
++    type: json
++
++resources:
++  StorageNetwork:
++    type: OS::Neutron::Net
++    properties:
++      admin_state_up: {get_param: StorageNetAdminStateUp}
++      name: {get_param: StorageNetName}
++      shared: {get_param: StorageNetShared}
++      value_specs: {get_param: StorageNetValueSpecs}
++
++  StorageSubnet:
++    type: OS::Neutron::Subnet
++    properties:
++      cidr: {get_param: StorageNetCidr}
++      enable_dhcp: {get_param: StorageNetEnableDHCP}
++      name: {get_param: StorageSubnetName}
++      network: {get_resource: StorageNetwork}
++      allocation_pools: {get_param: StorageAllocationPools}
++
++outputs:
++  OS::stack_id:
++    description: Neutron storage network
++    value: {get_resource: StorageNetwork}
+diff --git a/network/storage_mgmt.yaml b/network/storage_mgmt.yaml
+new file mode 100644
+index 0000000..59933c8
+--- /dev/null
++++ b/network/storage_mgmt.yaml
+@@ -0,0 +1,62 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Storage management network. Storage replication, etc.
++
++parameters:
++  # the defaults here work for static IP assignment (IPAM) only
++  StorageMgmtNetCidr:
++    default: '172.16.3.0/24'
++    description: Cidr for the storage management network.
++    type: string
++  StorageMgmtNetValueSpecs:
++    default: {'provider:physical_network': 'storage_mgmt', 'provider:network_type': 'flat'}
++    description: Value specs for the storage_mgmt network.
++    type: json
++  StorageMgmtNetAdminStateUp:
++    default: false
++    description: This admin state of the network.
++    type: boolean
++  StorageMgmtNetEnableDHCP:
++    default: false
++    description: Whether to enable DHCP on the associated subnet.
++    type: boolean
++  StorageMgmtNetShared:
++    default: false
++    description: Whether this network is shared across all tenants.
++    type: boolean
++  StorageMgmtNetName:
++    default: storage_mgmt
++    description: The name of the Storage management network.
++    type: string
++  StorageMgmtSubnetName:
++    default: storage_mgmt_subnet
++    description: The name of the Storage management subnet in Neutron.
++    type: string
++  StorageMgmtAllocationPools:
++    default: [{'start': '172.16.3.4', 'end': '172.16.3.250'}]
++    description: Ip allocation pool range for the storage mgmt network.
++    type: json
++
++resources:
++  StorageMgmtNetwork:
++    type: OS::Neutron::Net
++    properties:
++      admin_state_up: {get_param: StorageMgmtNetAdminStateUp}
++      name: {get_param: StorageMgmtNetName}
++      shared: {get_param: StorageMgmtNetShared}
++      value_specs: {get_param: StorageMgmtNetValueSpecs}
++
++  StorageMgmtSubnet:
++    type: OS::Neutron::Subnet
++    properties:
++      cidr: {get_param: StorageMgmtNetCidr}
++      enable_dhcp: {get_param: StorageMgmtNetEnableDHCP}
++      name: {get_param: StorageMgmtSubnetName}
++      network: {get_resource: StorageMgmtNetwork}
++      allocation_pools: {get_param: StorageMgmtAllocationPools}
++
++outputs:
++  OS::stack_id:
++    description: Neutron storage management network
++    value: {get_resource: StorageMgmtNetwork}
+diff --git a/network/tenant.yaml b/network/tenant.yaml
+new file mode 100644
+index 0000000..6fe9612
+--- /dev/null
++++ b/network/tenant.yaml
+@@ -0,0 +1,62 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Tenant network.
++
++parameters:
++  # the defaults here work for static IP assignment (IPAM) only
++  TenantNetCidr:
++    default: '172.16.0.0/24'
++    description: Cidr for the tenant network.
++    type: string
++  TenantNetValueSpecs:
++    default: {'provider:physical_network': 'tenant', 'provider:network_type': 'flat'}
++    description: Value specs for the tenant network.
++    type: json
++  TenantNetAdminStateUp:
++    default: false
++    description: This admin state of the network.
++    type: boolean
++  TenantNetEnableDHCP:
++    default: false
++    description: Whether to enable DHCP on the associated subnet.
++    type: boolean
++  TenantNetShared:
++    default: false
++    description: Whether this network is shared across all tenants.
++    type: boolean
++  TenantNetName:
++    default: tenant
++    description: The name of the tenant network.
++    type: string
++  TenantSubnetName:
++    default: tenant_subnet
++    description: The name of the tenant subnet in Neutron.
++    type: string
++  TenantAllocationPools:
++    default: [{'start': '172.16.0.4', 'end': '172.16.0.250'}]
++    description: Ip allocation pool range for the tenant network.
++    type: json
++
++resources:
++  TenantNetwork:
++    type: OS::Neutron::Net
++    properties:
++      admin_state_up: {get_param: TenantNetAdminStateUp}
++      name: {get_param: TenantNetName}
++      shared: {get_param: TenantNetShared}
++      value_specs: {get_param: TenantNetValueSpecs}
++
++  TenantSubnet:
++    type: OS::Neutron::Subnet
++    properties:
++      cidr: {get_param: TenantNetCidr}
++      enable_dhcp: {get_param: TenantNetEnableDHCP}
++      name: {get_param: TenantSubnetName}
++      network: {get_resource: TenantNetwork}
++      allocation_pools: {get_param: TenantAllocationPools}
++
++outputs:
++  OS::stack_id:
++    description: Neutron tenant network
++    value: {get_resource: TenantNetwork}
+diff --git a/network/vip-config.yaml b/network/vip-config.yaml
+new file mode 100644
+index 0000000..36701f5
+--- /dev/null
++++ b/network/vip-config.yaml
+@@ -0,0 +1,38 @@
++heat_template_version: 2015-04-30
++
++description: >
++  Configure hieradata for service -> virtual IP mappings.
++
++parameters:
++  PublicVirtualIp:
++    default: 192.0.2.40
++    type: string
++  NodeVirtualIp:
++    default: 192.0.2.41
++    type: string
++  InternalApiVirtualIp:
++    default: 192.0.2.42
++    type: string
++  StorageVirtualIp:
++    default: 192.0.2.43
++    type: string
++  StorageMgmtVirtualIp:
++    default: 192.0.2.44
++    type: string
++
++resources:
++  VipConfigImpl:
++    type: OS::Heat::StructuredConfig
++    properties:
++      group: os-apply-config
++      config:
++        public_virtual_ip: {get_param: PublicVirtualIp}
++        controller_virtual_ip: {get_param: NodeVirtualIp}
++        internal_api_virtual_ip: {get_param: InternalApiVirtualIp}
++        storage_virtual_ip: {get_param: StorageVirtualIp}
++        storage_mgmt_virtual_ip: {get_param: StorageMgmtVirtualIp}
++
++outputs:
++  OS::stack_id:
++    description: The VipConfigImpl resource.
++    value: {get_resource: VipConfigImpl}
+diff --git a/overcloud-resource-registry.yaml b/overcloud-resource-registry.yaml
+index 129afcf..23678f7 100644
+--- a/overcloud-resource-registry.yaml
++++ b/overcloud-resource-registry.yaml
+@@ -3,3 +3,71 @@ resource_registry:
+   OS::TripleO::Node: kolla/node.yaml
+   OS::TripleO::NodeAdminUserData: firstboot/userdata_heat_admin.yaml
+   OS::TripleO::NodeUserData: firstboot/setup_docker.yaml
++
++
++  # network
++  OS::TripleO::Network: network/networks.yaml
++  OS::TripleO::VipConfig: network/vip-config.yaml
++
++  # network-isolation
++  OS::TripleO::Network::External: network/noop.yaml
++  OS::TripleO::Network::InternalApi: network/noop.yaml
++  OS::TripleO::Network::StorageMgmt: network/noop.yaml
++  OS::TripleO::Network::Storage: network/noop.yaml
++  OS::TripleO::Network::Tenant: network/noop.yaml
++  OS::TripleO::Network::Management: network/noop.yaml
++
++  OS::TripleO::Network::Ports::NetVipMap: network/ports/net_ip_map.yaml
++  OS::TripleO::Network::Ports::NetIpMap: network/ports/net_ip_map.yaml
++  OS::TripleO::Network::Ports::NetIpSubnetMap: network/ports/net_ip_subnet_map.yaml
++  OS::TripleO::Network::Ports::NetIpListMap: network/ports/net_ip_list_map.yaml
++
++  # Port assignments for the VIPs
++  OS::TripleO::Network::Ports::ExternalVipPort: network/ports/noop.yaml
++  OS::TripleO::Network::Ports::InternalApiVipPort: network/ports/noop.yaml
++  OS::TripleO::Network::Ports::StorageVipPort: network/ports/noop.yaml
++  OS::TripleO::Network::Ports::StorageMgmtVipPort: network/ports/noop.yaml
++  OS::TripleO::Network::Ports::RedisVipPort: network/ports/ctlplane_vip.yaml
++
++  # Port assignments for the controller role
++  OS::TripleO::Controller::Ports::ExternalPort: network/ports/noop.yaml
++  OS::TripleO::Controller::Ports::InternalApiPort: network/ports/noop.yaml
++  OS::TripleO::Controller::Ports::StoragePort: network/ports/noop.yaml
++  OS::TripleO::Controller::Ports::StorageMgmtPort: network/ports/noop.yaml
++  OS::TripleO::Controller::Ports::TenantPort: network/ports/noop.yaml
++  OS::TripleO::Controller::Ports::ManagementPort: network/ports/noop.yaml
++
++  # Port assignments for the compute role
++  OS::TripleO::Compute::Ports::ExternalPort: network/ports/noop.yaml
++  OS::TripleO::Compute::Ports::InternalApiPort: network/ports/noop.yaml
++  OS::TripleO::Compute::Ports::StoragePort: network/ports/noop.yaml
++  OS::TripleO::Compute::Ports::StorageMgmtPort: network/ports/noop.yaml
++  OS::TripleO::Compute::Ports::TenantPort: network/ports/noop.yaml
++  OS::TripleO::Compute::Ports::ManagementPort: network/ports/noop.yaml
++
++  # Port assignments for the ceph storage role
++  OS::TripleO::CephStorage::Ports::ExternalPort: network/ports/noop.yaml
++  OS::TripleO::CephStorage::Ports::InternalApiPort: network/ports/noop.yaml
++  OS::TripleO::CephStorage::Ports::StoragePort: network/ports/noop.yaml
++  OS::TripleO::CephStorage::Ports::StorageMgmtPort: network/ports/noop.yaml
++  OS::TripleO::CephStorage::Ports::TenantPort: network/ports/noop.yaml
++  OS::TripleO::CephStorage::Ports::ManagementPort: network/ports/noop.yaml
++
++  # Port assignments for the swift storage role
++  OS::TripleO::SwiftStorage::Ports::ExternalPort: network/ports/noop.yaml
++  OS::TripleO::SwiftStorage::Ports::InternalApiPort: network/ports/noop.yaml
++  OS::TripleO::SwiftStorage::Ports::StoragePort: network/ports/noop.yaml
++  OS::TripleO::SwiftStorage::Ports::StorageMgmtPort: network/ports/noop.yaml
++  OS::TripleO::SwiftStorage::Ports::TenantPort: network/ports/noop.yaml
++  OS::TripleO::SwiftStorage::Ports::ManagementPort: network/ports/noop.yaml
++
++  # Port assignments for the block storage role
++  OS::TripleO::BlockStorage::Ports::ExternalPort: network/ports/noop.yaml
++  OS::TripleO::BlockStorage::Ports::InternalApiPort: network/ports/noop.yaml
++  OS::TripleO::BlockStorage::Ports::StoragePort: network/ports/noop.yaml
++  OS::TripleO::BlockStorage::Ports::StorageMgmtPort: network/ports/noop.yaml
++  OS::TripleO::BlockStorage::Ports::TenantPort: network/ports/noop.yaml
++  OS::TripleO::BlockStorage::Ports::ManagementPort: network/ports/noop.yaml
++
++  # Service Endpoint Mappings
++  OS::TripleO::EndpointMap: network/endpoints/endpoint_map.yaml
+diff --git a/overcloud.yaml b/overcloud.yaml
+index 9bcc894..5e4b3b7 100644
+--- a/overcloud.yaml
++++ b/overcloud.yaml
+@@ -4,15 +4,78 @@ description: >
+   Deploy Kolla.
+ 
+ parameters:
++  CloudName:
++    default: overcloud
++    description: The DNS name of this cloud. E.g. ci-overcloud.tripleo.org
++    type: string
++  ControlFixedIPs:
++    default: []
++    description: Should be used for arbitrary ips.
++    type: json
++  ControlVirtualInterface:
++    default: 'br-ex'
++    description: Interface where virtual ip will be assigned.
++    type: string
++  HostnameFormat:
++    type: string
++    description: Format for Compute node hostnames
++    default: '%stackname%-%index%'
++  InternalApiVirtualFixedIPs:
++    default: []
++    description: >
++        Control the IP allocation for the InternalApiVirtualInterface port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    type: json
++  NeutronControlPlaneID:
++    default: 'ctlplane'
++    type: string
++    description: Neutron ID or name for ctlplane network.
+   NodeCount:
+     type: number
+     default: 2
+     constraints:
+       - range: {min: 1}
+-  HostnameFormat:
++  PublicVirtualFixedIPs:
++    default: []
++    description: >
++        Control the IP allocation for the PublicVirtualInterface port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    type: json
++  PublicVirtualInterface:
++    default: 'br-ex'
++    description: >
++        Specifies the interface where the public-facing virtual ip will be assigned.
++        This should be int_public when a VLAN is being used.
+     type: string
+-    description: Format for Compute node hostnames
+-    default: '%stackname%-%index%'
++  ServiceNetMap:
++    default:
++      NeutronTenantNetwork: tenant
++      KeystoneAdminApiNetwork: ctlplane # allows undercloud to config endpoints
++      KeystonePublicApiNetwork: internal_api
++      NeutronApiNetwork: internal_api
++      RabbitMqNetwork: internal_api
++      RedisNetwork: internal_api
++      CephPublicNetwork: storage
++      ControllerHostnameResolveNetwork: internal_api
++      ComputeHostnameResolveNetwork: internal_api
++      BlockStorageHostnameResolveNetwork: internal_api
++      ObjectStorageHostnameResolveNetwork: internal_api
++      CephStorageHostnameResolveNetwork: storage
++    description: Mapping of service_name -> network name. Typically set
++                 via parameter_defaults in the resource registry.
++    type: json
++  StorageMgmtVirtualFixedIPs:
++    default: []
++    description: >
++        Control the IP allocation for the StorageMgmgVirtualInterface port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    type: json
++  StorageVirtualFixedIPs:
++    default: []
++    description: >
++        Control the IP allocation for the StorageVirtualInterface port. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    type: json
+ 
+ resources:
+   Node:
+@@ -27,6 +90,88 @@ resources:
+               template: {get_param: HostnameFormat}
+               params:
+                 '%stackname%': {get_param: 'OS::stack_name'}
++          VirtualIP: {get_attr: [VipMap, net_ip_map, ctlplane]} # deprecated. Use per service VIP settings instead now.
++          PublicVirtualIP: {get_attr: [VipMap, net_ip_map, external]}
++          PublicVirtualInterface: {get_param: PublicVirtualInterface}
++          EndpointMap: {get_attr: [EndpointMap, endpoint_map]}
++
++  # creates the network architecture
++
++  EndpointMap:
++    type: OS::TripleO::EndpointMap
++    properties:
++      CloudName: {get_param: CloudName}
++      PublicVirtualIP: {get_attr: [VipMap, net_ip_uri_map, external]}
++
++  Networks:
++    type: OS::TripleO::Network
++
++  ControlVirtualIP:
++    type: OS::Neutron::Port
++    depends_on: Networks
++    properties:
++      name: control_virtual_ip
++      network: {get_param: NeutronControlPlaneID}
++      fixed_ips: {get_param: ControlFixedIPs}
++      replacement_policy: AUTO
++
++  RedisVirtualIP:
++    depends_on: Networks
++    type: OS::TripleO::Network::Ports::RedisVipPort
++    properties:
++      ControlPlaneIP: {get_attr: [ControlVirtualIP, fixed_ips, 0, ip_address]}
++      ControlPlaneNetwork: {get_param: NeutronControlPlaneID}
++      PortName: redis_virtual_ip
++      NetworkName: {get_param: [ServiceNetMap, RedisNetwork]}
++      ServiceName: redis
++
++  # The public VIP is on the External net, falls back to ctlplane
++  PublicVirtualIP:
++    depends_on: Networks
++    type: OS::TripleO::Network::Ports::ExternalVipPort
++    properties:
++      ControlPlaneIP: {get_attr: [ControlVirtualIP, fixed_ips, 0, ip_address]}
++      ControlPlaneNetwork: {get_param: NeutronControlPlaneID}
++      PortName: public_virtual_ip
++      FixedIPs: {get_param: PublicVirtualFixedIPs}
++
++  InternalApiVirtualIP:
++    depends_on: Networks
++    type: OS::TripleO::Network::Ports::InternalApiVipPort
++    properties:
++      ControlPlaneIP: {get_attr: [ControlVirtualIP, fixed_ips, 0, ip_address]}
++      PortName: internal_api_virtual_ip
++      FixedIPs: {get_param: InternalApiVirtualFixedIPs}
++
++  StorageVirtualIP:
++    depends_on: Networks
++    type: OS::TripleO::Network::Ports::StorageVipPort
++    properties:
++      ControlPlaneIP: {get_attr: [ControlVirtualIP, fixed_ips, 0, ip_address]}
++      PortName: storage_virtual_ip
++      FixedIPs: {get_param: StorageVirtualFixedIPs}
++
++  StorageMgmtVirtualIP:
++    depends_on: Networks
++    type: OS::TripleO::Network::Ports::StorageMgmtVipPort
++    properties:
++      ControlPlaneIP: {get_attr: [ControlVirtualIP, fixed_ips, 0, ip_address]}
++      PortName: storage_management_virtual_ip
++      FixedIPs: {get_param: StorageMgmtVirtualFixedIPs}
++
++  VipMap:
++    type: OS::TripleO::Network::Ports::NetVipMap
++    properties:
++      ControlPlaneIp: {get_attr: [ControlVirtualIP, fixed_ips, 0, ip_address]}
++      ExternalIp: {get_attr: [PublicVirtualIP, ip_address]}
++      ExternalIpUri: {get_attr: [PublicVirtualIP, ip_address_uri]}
++      InternalApiIp: {get_attr: [InternalApiVirtualIP, ip_address]}
++      InternalApiIpUri: {get_attr: [InternalApiVirtualIP, ip_address_uri]}
++      StorageIp: {get_attr: [StorageVirtualIP, ip_address]}
++      StorageIpUri: {get_attr: [StorageVirtualIP, ip_address_uri]}
++      StorageMgmtIp: {get_attr: [StorageMgmtVirtualIP, ip_address]}
++      StorageMgmtIpUri: {get_attr: [StorageMgmtVirtualIP, ip_address_uri]}
++      # No tenant or management VIP required
+ 
+ outputs:
+   ip_addresses:
