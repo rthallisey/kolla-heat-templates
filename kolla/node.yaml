@@ -3,17 +3,23 @@ description: >
   OpenStack node deployment for Kolla.
 
 parameters:
-  EndpointMap:
-    default: {}
-    description: Mapping of service endpoint -> protocol. Typically set
-                 via parameter_defaults in the resource registry.
-    type: json
+  Image:
+    type: string
+    default: atomic-image
+    constraints:
+      - custom_constraint: glance.image
   Flavor:
     description: Flavor for the nova compute node
     type: string
     default: baremetal
     constraints:
       - custom_constraint: nova.flavor
+  KeyName:
+    description: Name of an existing Nova key pair to enable SSH access to the instances
+    type: string
+    default: default
+    constraints:
+      - custom_constraint: nova.keypair
   Hostname:
     type: string
     default: '' # Defaults to Heat created hostname
@@ -21,29 +27,6 @@ parameters:
     type: json
     default: {}
     description: Optional mapping to override hostnames
-  Image:
-    type: string
-    default: atomic-image
-    constraints:
-      - custom_constraint: glance.image
-  KeyName:
-    description: Name of an existing Nova key pair to enable SSH access to the instances
-    type: string
-    default: default
-    constraints:
-      - custom_constraint: nova.keypair
-  PublicVirtualIP:
-    type: string
-    default: ''  # Has to be here because of the ignored empty value bug
-  PublicVirtualInterface:
-    default: 'br-ex'
-    description: >
-        Specifies the interface where the public-facing virtual ip will be assigned.
-        This should be int_public when a VLAN is being used.
-    type: string
-  VirtualIP: # DEPRECATED: use per service settings instead
-    type: string
-    default: ''  # Has to be here because of the ignored empty value bug
 
 resources:
 
@@ -105,7 +88,3 @@ outputs:
   ip_address:
     description: IP address of the server in the ctlplane network
     value: {get_attr: [Node, networks, ctlplane, 0]}
-  nova_server_resource:
-    description: Heat resource handle for the Nova compute server
-    value:
-      {get_resource: Node}
