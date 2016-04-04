@@ -1,9 +1,13 @@
 resource_registry:
-  # kolla
+  # Blank Node
   OS::TripleO::Node: kolla/node.yaml
+
+  # Compute Node
+  OS::TripleO::Compute: kolla/compute.yaml
+
+  # Firstboot setup
   OS::TripleO::NodeAdminUserData: firstboot/userdata_heat_admin.yaml
   OS::TripleO::NodeUserData: firstboot/setup_docker.yaml
-
 
   # network
   OS::TripleO::Network: network/networks.yaml
@@ -69,5 +73,17 @@ resource_registry:
   OS::TripleO::BlockStorage::Ports::TenantPort: network/ports/noop.yaml
   OS::TripleO::BlockStorage::Ports::ManagementPort: network/ports/noop.yaml
 
+  # Bridge
+  OS::TripleO::Controller::Net::SoftwareConfig: net-config-bridge.yaml
+
   # Service Endpoint Mappings
   OS::TripleO::EndpointMap: network/endpoints/endpoint_map.yaml
+
+  # Overcloud Nic setup
+  OS::TripleO::BlockStorage::Net::SoftwareConfig: net-config-noop.yaml
+  OS::TripleO::Compute::Net::SoftwareConfig: net-config-noop.yaml
+  OS::TripleO::Controller::Net::SoftwareConfig: net-config-noop.yaml
+  OS::TripleO::ObjectStorage::Net::SoftwareConfig: net-config-noop.yaml
+  OS::TripleO::CephStorage::Net::SoftwareConfig: net-config-noop.yaml
+
+  OS::TripleO::SoftwareDeployment: OS::Heat::StructuredDeployment

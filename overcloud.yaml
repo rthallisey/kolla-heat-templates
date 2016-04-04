@@ -78,6 +78,7 @@ parameters:
     type: json
 
 resources:
+  # Generic Node
   Node:
     type: OS::Heat::ResourceGroup
     properties:
@@ -95,8 +96,7 @@ resources:
           PublicVirtualInterface: {get_param: PublicVirtualInterface}
           EndpointMap: {get_attr: [EndpointMap, endpoint_map]}
 
-  # creates the network architecture
-
+  # Create the network architecture
   EndpointMap:
     type: OS::TripleO::EndpointMap
     properties:

@@ -29,8 +29,6 @@ EOF
 
 # The Fedora setup doesn't allow root login which is what it seems ansible
 # wants so I'm going to copy the ssh key from the fedora user to /root.
-
 cp -rv /home/fedora/.ssh /root/
 
-# For verifying the node has booted and is ready.. not yet usable.
-# os-collect-config
+os-collect-config

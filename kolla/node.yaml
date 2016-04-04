@@ -23,7 +23,7 @@ parameters:
     description: Optional mapping to override hostnames
   Image:
     type: string
-    default: overcloud-full
+    default: atomic-image
     constraints:
       - custom_constraint: glance.image
   KeyName:
@@ -44,6 +44,24 @@ parameters:
   VirtualIP: # DEPRECATED: use per service settings instead
     type: string
     default: ''  # Has to be here because of the ignored empty value bug
+
+# Network Isolation Variables
+  NodeIPs:
+    default: {}
+    type: json
+  NeutronPhysicalBridge:
+    default: 'br-ex'
+    description: An OVS bridge to create for accessing external networks.
+    type: string
+  NeutronPublicInterface:
+    default: nic1
+    description: A port to add to the NeutronPhysicalBridge.
+    type: string
+  NetworkDeploymentActions:
+    type: comma_delimited_list
+    description: >
+      Heat action when to apply network configuration changes
+    default: ['CREATE']
 
 resources:
 
@@ -83,23 +101,65 @@ resources:
   NodeUserData:
     type: OS::TripleO::NodeUserData
 
-  # VerifyCompleteDeployment:
-  #   type: OS::Heat::SoftwareDeployments
-  #   depends_on: Node
-  #   properties:
-  #     name: VerifyCompleteDeployment
-  #     config: {get_resource: VerifyCompleteConfig}
-  #     servers: {get_resource: Node}
-  #
-  # VerifyCompleteConfig:
-  #   type: OS::Heat::SoftwareConfig
-  #   properties:
-  #     group: script
-  #     outputs:
-  #     - name: result
-  #     config: |
-  #       #!/bin/bash
-  #       /bin/true
+  ExternalPort:
+    type: OS::TripleO::Compute::Ports::ExternalPort
+    properties:
+      ControlPlaneIP: {get_attr: [Node, networks, ctlplane, 0]}
+      IPPool: {get_param: NodeIPs}
+
+  InternalApiPort:
+    type: OS::TripleO::Compute::Ports::InternalApiPort
+    properties:
+      ControlPlaneIP: {get_attr: [Node, networks, ctlplane, 0]}
+      IPPool: {get_param: NodeIPs}
+
+  StoragePort:
+    type: OS::TripleO::Compute::Ports::StoragePort
+    properties:
+      ControlPlaneIP: {get_attr: [Node, networks, ctlplane, 0]}
+      IPPool: {get_param: NodeIPs}
+
+  StorageMgmtPort:
+    type: OS::TripleO::Compute::Ports::StorageMgmtPort
+    properties:
+      ControlPlaneIP: {get_attr: [Node, networks, ctlplane, 0]}
+      IPPool: {get_param: NodeIPs}
+
+  TenantPort:
+    type: OS::TripleO::Compute::Ports::TenantPort
+    properties:
+      ControlPlaneIP: {get_attr: [Node, networks, ctlplane, 0]}
+      IPPool: {get_param: NodeIPs}
+
+  ManagementPort:
+    type: OS::TripleO::Compute::Ports::ManagementPort
+    properties:
+      ControlPlaneIP: {get_attr: [Node, networks, ctlplane, 0]}
+      IPPool: {get_param: NodeIPs}
+
+  NetworkConfig:
+    type: OS::TripleO::Compute::Net::SoftwareConfig
+    properties:
+      ControlPlaneIp: {get_attr: [Node, networks, ctlplane, 0]}
+      ExternalIpSubnet: {get_attr: [ExternalPort, ip_subnet]}
+      InternalApiIpSubnet: {get_attr: [InternalApiPort, ip_subnet]}
+      StorageIpSubnet: {get_attr: [StoragePort, ip_subnet]}
+      StorageMgmtIpSubnet: {get_attr: [StorageMgmtPort, ip_subnet]}
+      TenantIpSubnet: {get_attr: [TenantPort, ip_subnet]}
+      ManagementIpSubnet: {get_attr: [ManagementPort, ip_subnet]}
+
+  NetworkDeployment:
+    type: OS::TripleO::SoftwareDeployment
+    depends_on: Node
+    properties:
+      name: NetworkDeployment
+      config: {get_resource: NetworkConfig}
+      server: {get_resource: Node}
+      actions: {get_param: NetworkDeploymentActions}
+      input_values:
+        bridge_name: {get_param: NeutronPhysicalBridge}
+        interface_name: {get_param: NeutronPublicInterface}
+
 
 outputs:
   ip_address:
