@@ -3,7 +3,7 @@ resource_registry:
   OS::TripleO::Node: kolla/node.yaml
 
   # Compute Node
-  OS::TripleO::Compute: kolla/compute.yaml
+  #OS::TripleO::Compute: kolla/compute.yaml
 
   # Firstboot setup
   OS::TripleO::NodeAdminUserData: firstboot/userdata_heat_admin.yaml

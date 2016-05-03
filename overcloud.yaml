@@ -177,3 +177,6 @@ outputs:
   ip_addresses:
     description: IP address of the server in the ctlplane network
     value: {get_attr: [Node, ip_address]}
+  PublicVip:
+    description: Controller VIP for public API endpoints
+    value: {get_attr: [VipMap, net_ip_map, external]}
