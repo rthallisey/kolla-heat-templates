@@ -40,4 +40,9 @@ sed -i s/x.x.x.x/$MY_IP/ kolla-heat-templates/environments/kolla.yaml
 
 sudo docker run -d -p 4000:5000 --restart=always --name registry registry:2
 
-(cd kolla && sudo ./tools/build.py keystone cron kolla-toolbox heka nova glance mariadb haproxy keepalived memcached neutron openvswitch heat horizon rabbitmq --base centos --tag latest --namespace kolla-tripleo -t binary --registry ${MYIP}:4000 --push)
+wget shell.bos.redhat.com/~rhallise/fedora-software-config-23.qcow2
+source stackrc
+glance image-delete atomic-image
+glance image-create --name atomic-image --file fedora-software-config-23.qcow2 --disk-format qcow2 --container-format bare
+
+(cd kolla && sudo ./tools/build.py keystone cron heka kolla-toolbox heka nova glance mariadb haproxy keepalived memcached neutron openvswitch heat horizon rabbitmq --base centos --tag latest --namespace kolla-tripleo -t binary --registry ${MYIP}:4000 --push)

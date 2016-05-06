@@ -2,4 +2,4 @@ resource_registry:
   OS::TripleO::Node: ../kolla/node.yaml
 
 parameter_defaults:
-  DockerRegistry: x.x.x.x:4000
+  DockerRegistry: 192.168.122.240:4000
